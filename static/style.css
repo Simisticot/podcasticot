@@ -1,0 +1,11 @@
+#player-container{
+    position: fixed;
+    top:0;
+    justify-content: space-around;
+    display: flex;
+    width: 100%;
+}
+
+#ui{
+    margin-top: 50px;
+}

@@ -1,0 +1,31 @@
+<html lang="en">
+<head>
+    <script src="https://unpkg.com/htmx.org@1.9.10"
+            integrity="sha384-D1Kt99CQMDuVetoL1lrYwg5t+9QdHe7NLX/SoJYkXDFfX37iInKRy5xLSi8nO7UC"
+            crossorigin="anonymous"></script>
+   <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+    <link href="/static/style.css" rel="stylesheet">
+    <title>Coucou</title>
+</head>
+<body>
+<div>
+    <div id="player-container">
+        <div id="player">
+        </div>
+    </div>
+    <div id="ui">
+        <div>
+            <h1>Import feed</h1>
+            <form hx-post="/fetch-feeds" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
+                <label for="#user-feeds">List your feeds in here</label>
+                <br>
+                <textarea id="#user-feeds" placeholder="One feed per line" name="feed_list"></textarea>
+                <br>
+                <button type="submit">Fetch</button>
+                <div id="user-feeds-timeline"></div>
+            </form>
+        </div>
+    </div>
+</div>
+</body>
+</html>
