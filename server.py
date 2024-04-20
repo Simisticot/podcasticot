@@ -1,11 +1,13 @@
 import json
 from os import environ as env
 from urllib.parse import quote_plus, urlencode
+from uuid import uuid4
 
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, session, url_for, Request, request
 
+from datastore import Datastore
 from rss import assets_from_feed_list_chronological
 
 ENV_FILE = find_dotenv()
@@ -41,16 +43,36 @@ def home():
 
 @app.route("/podhome")
 def podhome():
+    user_email = session.get("user")["userinfo"]["email"]
+    if user_email is None:
+        return redirect(url_for("login"))
+    ds = Datastore()
+    user = ds.find_user(user_email)
+    if user is None:
+        user = ds.save_user(id=str(uuid4()), email=user_email)
+    subscriptions = ds.find_subscriptions(user_id=user.id)
     return render_template(
-        "podcast_home.html",
+        template_name_or_list="podcast_home.html",
+        episode_asset_list=assets_from_feed_list_chronological([sub.feed_url for sub in subscriptions]),
     )
 
 
 @app.route("/fetch-feeds", methods=["GET", "POST"])
 def fetch_feeds():
     feed_list = request.form["feed_list"].split("\n")
-    all_feed_assets = assets_from_feed_list_chronological(feed_list)
-    return render_template(template_name_or_list="feed.html", episode_asset_list=all_feed_assets)
+    ds = Datastore()
+    user_email = session.get("user")["userinfo"]["email"]
+    user = ds.find_user(user_email)
+    if user is None:
+        user = ds.save_user(id=str(uuid4()), email=user_email)
+    for feed in feed_list:
+        ds.subscribe(user_id=user.id, feed_url=feed)
+    subscriptions = ds.find_subscriptions(user_id=user.id)
+    all_feed_assets = assets_from_feed_list_chronological([sub.feed_url for sub in subscriptions])
+    return render_template(
+        template_name_or_list="feed.html", episode_asset_list=all_feed_assets
+    )
+
 
 @app.post("/play-episode")
 def play_episode():
@@ -59,11 +81,12 @@ def play_episode():
         return "No episode url provided", 400
     return f"<audio controls autoplay src='{episode_url}'>"
 
+
 @app.route("/callback", methods=["GET", "POST"])
 def callback():
     token = oauth.auth0.authorize_access_token()
     session["user"] = token
-    return redirect("/")
+    return redirect("/podhome")
 
 
 @app.route("/login")

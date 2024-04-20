@@ -5,7 +5,7 @@
             crossorigin="anonymous"></script>
    <script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
     <link href="/static/style.css" rel="stylesheet">
-    <title>Coucou</title>
+    <title>Podcasticot - Feed</title>
 </head>
 <body>
 <div>
@@ -15,15 +15,15 @@
     </div>
     <div id="ui">
         <div>
-            <h1>Import feed</h1>
+            <h1>Import feeds</h1>
             <form hx-post="/fetch-feeds" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
                 <label for="#user-feeds">List your feeds in here</label>
                 <br>
                 <textarea id="#user-feeds" placeholder="One feed per line" name="feed_list"></textarea>
                 <br>
-                <button type="submit">Fetch</button>
-                <div id="user-feeds-timeline"></div>
+                <button type="submit">import</button>
             </form>
+            <div id="user-feeds-timeline">{% include "feed.html" %}</div>
         </div>
     </div>
 </div>

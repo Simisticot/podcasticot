@@ -1,14 +1,15 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Auth0 Example</title>
+    <title>Podcasticot - Login</title>
   </head>
   <body>
     {% if session %}
-    <h1>Welcome {{session.userinfo.name}}!</h1>
-        <span>Go to <a href="/podhome">your feed</a></span>
+    <h1>Welcome to Podcasticot</h1>
+        <span>Go to <a href="/podhome">your feed</a></span><br>
+        <span><a href="/logout">Logout</a></span>
     {% else %}
-    <h1 id="profileDropDown">Welcome Guest</h1>
+    <h1 id="profileDropDown">Welcome to Podcasticot</h1>
     <p><a href="/login" id="qsLoginBtn">Login</a></p>
     {% endif %}
   </body>

@@ -15,11 +15,12 @@ class EpisodeAssets:
     @staticmethod
     def from_feed_entry(entry: dict) -> EpisodeAssets:
         download_link = next(
-            (link["href"] for link in entry["links"] if link["type"] == "audio/mpeg"), None
+            (link["href"] for link in entry["links"] if link["type"] == "audio/mpeg"),
+            None,
         )
         return EpisodeAssets(
             title=entry["title"],
             description=entry.get("summary", None),
             download_link=download_link,
-            published_date=datetime.fromtimestamp(mktime(entry["published_parsed"]))
+            published_date=datetime.fromtimestamp(mktime(entry["published_parsed"])),
         )
