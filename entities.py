@@ -6,7 +6,8 @@ class User:
     id: str
     email: str
 
+
 @dataclass
 class Subscription:
     user_id: str
-    feed_url: str
+    feed_id: str

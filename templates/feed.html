@@ -1,9 +1,9 @@
-{% for episode_assets in  episode_asset_list %}
-<h2> {{ episode_assets.title }}</h2>
+{% for episode in  episodes %}
+<h2> {{ episode.assets.title }}</h2>
 <div>
-<p>{% if episode_assets.description %} {{ episode_assets.description | safe }} {% else %} No description available {% endif %}</p>
+<p>{% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}</p>
 </div>
 <form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
-    <button type="submit" value="{{ episode_assets.download_link }}"  name="episode_url">Play</button>
+    <button type="submit" value="{{ episode.id }}"  name="episode_id">Play</button>
 </form>
 {% endfor %}

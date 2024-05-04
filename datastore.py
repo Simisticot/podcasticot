@@ -1,14 +1,19 @@
+import logging
 import sqlite3
 from typing import Optional
+from uuid import uuid4
 
-from entities import User, Subscription
+from entities import Subscription, User
+from podcast import Episode, EpisodeAssets
 
 
 class UserAlreadyExists(Exception): ...
 
 
-class SubscriptionAlreadyExists(Exception):
-    ...
+class SubscriptionAlreadyExists(Exception): ...
+
+
+class EpisodeNotFound(Exception): ...
 
 
 class Datastore:
@@ -24,7 +29,10 @@ class Datastore:
                 "CREATE TABLE user (id TEXT NOT NULL PRIMARY KEY, email TEXT UNIQUE );"
             )
             cursor.execute(
-                "CREATE TABLE subscription (user_id TEXT NOT NULL, feed_url TEXT NOT NULL, PRIMARY KEY (user_id, feed_url), FOREIGN KEY (user_id) REFERENCES user(id));"
+                "CREATE TABLE subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), FOREIGN KEY (user_id) REFERENCES user(id));"
+            )
+            cursor.execute(
+                "CREATE TABLE episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date TIMESTAMP NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
             )
         connection.close()
 
@@ -51,11 +59,14 @@ class Datastore:
             return None
         return User(id=result[0], email=result[1])
 
-    def subscribe(self, user_id: str, feed_url: str) -> None:
+    def subscribe(self, user_id: str, feed_id: str) -> None:
         connection = self._get_connection()
         cursor = connection.cursor()
         try:
-            cursor.execute("INSERT INTO subscription (user_id, feed_url) VALUES (?, ?);", (user_id, feed_url))
+            cursor.execute(
+                "INSERT INTO subscription (user_id, feed_id) VALUES (?, ?);",
+                (user_id, feed_id),
+            )
         except sqlite3.IntegrityError:
             raise SubscriptionAlreadyExists
         connection.commit()
@@ -64,7 +75,75 @@ class Datastore:
     def find_subscriptions(self, user_id: str) -> list[Subscription]:
         connection = self._get_connection()
         cursor = connection.cursor()
-        cursor.execute("SELECT feed_url FROM subscription WHERE user_id = ?;", (user_id,))
+        cursor.execute(
+            "SELECT feed_id FROM subscription WHERE user_id = ?;", (user_id,)
+        )
         result = cursor.fetchall()
         connection.close()
-        return [Subscription(user_id=user_id, feed_url=row[0]) for row in result]
+        return [Subscription(user_id=user_id, feed_id=row[0]) for row in result]
+
+    def save_feed(self, episodes: list[EpisodeAssets]) -> str:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        feed_id = str(uuid4())
+        episodes_data = [
+            (
+                str(uuid4()),
+                ep.title,
+                ep.description,
+                ep.download_link,
+                ep.published_date,
+                feed_id,
+            )
+            for ep in episodes
+        ]
+        cursor.executemany(
+            "INSERT INTO episode (episode_id, title, description, download_link, published_date, feed_id) values (?,?,?,?,?,?)",
+            episodes_data,
+        )
+        connection.commit()
+        connection.close()
+        return feed_id
+
+    def get_user_feeds(self, user_id: str) -> list[Episode]:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id WHERE subscription.user_id = ? LIMIT 10;",
+            (user_id,),
+        )
+        result = cursor.fetchall()
+        connection.close()
+        episodes = [
+            Episode(
+                id=row[0],
+                assets=EpisodeAssets(
+                    title=row[1],
+                    description=row[2],
+                    download_link=row[3],
+                    published_date=row[4],
+                ),
+            )
+            for row in result
+        ]
+        episodes.sort(reverse=True, key=lambda episode: episode.assets.published_date)
+        return episodes
+
+    def get_episode(self, episode_id: str) -> Episode:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "select title, description, download_link, published_date from episode where episode_id = ?;",
+            (episode_id,),
+        )
+        result = cursor.fetchone()
+        if len(result) == 0:
+            raise EpisodeNotFound
+
+        assets = EpisodeAssets(
+            title=result[0],
+            description=result[1],
+            download_link=result[2],
+            published_date=result[3],
+        )
+        return Episode(id=episode_id, assets=assets)

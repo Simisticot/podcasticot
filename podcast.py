@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from time import mktime
@@ -24,3 +25,9 @@ class EpisodeAssets:
             download_link=download_link,
             published_date=datetime.fromtimestamp(mktime(entry["published_parsed"])),
         )
+
+
+@dataclass
+class Episode:
+    id: str
+    assets: EpisodeAssets
