@@ -1,9 +1,8 @@
-from datetime import timedelta
 import json
+from datetime import timedelta
 from os import environ as env
 from urllib.parse import quote_plus, urlencode
 from uuid import uuid4
-import math
 
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
@@ -60,25 +59,24 @@ def podhome():
     )
 
 
-@app.route("/fetch-feeds", methods=["GET", "POST"])
-def fetch_feeds():
+@app.post("/subscribe-to-feed")
+def subscribe_to_feed():
     session_user = session.get("user")
     if session_user is None:
         return redirect(url_for("login"))
     user_email = session_user["userinfo"]["email"]
-    feed_list = request.form["feed_list"].split("\n")
+    feed = request.form["feed"]
     ds = Datastore()
     db_user = ds.find_user(user_email)
     if db_user is None:
         db_user = ds.save_user(id=str(uuid4()), email=user_email)
-    for feed in feed_list:
-        feed_id = str(uuid4())
-        try:
-            ds.subscribe(user_id=db_user.id, feed_id=feed_id, feed_url=feed)
-        except SubscriptionAlreadyExists:
-            return "You are already subscribed to this feed", 409
-        episodes = assets_from_feed(feed)
-        ds.save_feed(feed_id, episodes)
+    feed_id = str(uuid4())
+    try:
+        ds.subscribe(user_id=db_user.id, feed_id=feed_id, feed_url=feed)
+    except SubscriptionAlreadyExists:
+        return "You are already subscribed to this feed", 409
+    episodes = assets_from_feed(feed)
+    ds.save_feed(feed_id, episodes)
     return render_template(
         template_name_or_list="feed.html",
         episodes=ds.get_user_feeds(user_id=db_user.id),
@@ -108,6 +106,7 @@ def play_episode():
         current_time = timedelta(seconds=total_seconds)
 
     return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{episode.assets.download_link}{'#t='+str(current_time) if current_time is not None else ''}'></audio>"
+
 
 @app.post("/current-time/<episode_id>/<seconds>")
 def current_time(episode_id: str, seconds: str):

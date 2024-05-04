@@ -37,7 +37,6 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS current_time (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
         )
 
-
     def _get_connection(self):
         return sqlite3.connect("poddb.db")
 
@@ -152,18 +151,26 @@ class Datastore:
         )
         return Episode(id=episode_id, assets=assets)
 
-
     def set_current_time(self, episode_id: str, user_id: str, seconds: int) -> None:
         connection = self._get_connection()
         cursor = connection.cursor()
-        cursor.execute("insert into current_time (episode_id, user_id, seconds) values (?,?,?) on conflict(episode_id, user_id) do update set seconds=?", (episode_id, user_id, seconds, seconds))
+        cursor.execute(
+            "insert into current_time (episode_id, user_id, seconds) values (?,?,?) on conflict(episode_id, user_id) do update set seconds=?",
+            (episode_id, user_id, seconds, seconds),
+        )
         connection.commit()
         connection.close()
 
     def get_current_time(self, episode_id: str, user_id: str) -> Optional[int]:
         connection = self._get_connection()
         cursor = connection.cursor()
-        cursor.execute("select seconds from current_time where episode_id = ? and user_id = ?;", (episode_id, user_id,))
+        cursor.execute(
+            "select seconds from current_time where episode_id = ? and user_id = ?;",
+            (
+                episode_id,
+                user_id,
+            ),
+        )
         result = cursor.fetchone()
         if result is None:
             return None

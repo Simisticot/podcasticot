@@ -16,12 +16,12 @@
     <div id="ui">
         <div>
             <h1>Import feeds</h1>
-            <form hx-post="/fetch-feeds" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
-                <label for="#user-feeds">List your feeds in here</label>
+            <form hx-post="/subscribe-to-feed" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
+                <label for="#new-feed">Subscribe to a new feed</label>
                 <br>
-                <textarea id="#user-feeds" placeholder="One feed per line" name="feed_list"></textarea>
+                <input type="text" id="#new-feed"  name="feed">
                 <br>
-                <button type="submit">import</button>
+                <button type="submit">Subscribe</button>
             </form>
             <div id="user-feeds-timeline">{% include "feed.html" %}</div>
         </div>
