@@ -109,7 +109,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id WHERE subscription.user_id = ? LIMIT 10;",
+            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
             (user_id,),
         )
         result = cursor.fetchall()
@@ -126,7 +126,6 @@ class Datastore:
             )
             for row in result
         ]
-        episodes.sort(reverse=True, key=lambda episode: episode.assets.published_date)
         return episodes
 
     def get_episode(self, episode_id: str) -> Episode:
