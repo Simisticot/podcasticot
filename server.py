@@ -1,7 +1,9 @@
+from datetime import timedelta
 import json
 from os import environ as env
 from urllib.parse import quote_plus, urlencode
 from uuid import uuid4
+import math
 
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
@@ -85,15 +87,40 @@ def fetch_feeds():
 
 @app.post("/play-episode")
 def play_episode():
+    session_user = session.get("user")
+    if session_user is None:
+        return redirect(url_for("login"))
+    user_email = session_user["userinfo"]["email"]
+    ds = Datastore()
+    db_user = ds.find_user(user_email)
+    if db_user is None:
+        return "Unknown User", 404
     episode_id = request.form.get("episode_id", None)
     if episode_id is None:
         return "No episode id provided", 400
-    ds = Datastore()
     try:
         episode = ds.get_episode(episode_id)
     except EpisodeNotFound:
         return "Episode not found", 404
-    return f"<audio controls autoplay src='{episode.assets.download_link}'>"
+    total_seconds = ds.get_current_time(episode_id=episode.id, user_id=db_user.id)
+    current_time = None
+    if total_seconds is not None:
+        current_time = timedelta(seconds=total_seconds)
+
+    return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{episode.assets.download_link}{'#t='+str(current_time) if current_time is not None else ''}'>"
+
+@app.post("/current-time/<episode_id>/<seconds>")
+def current_time(episode_id: str, seconds: str):
+    session_user = session.get("user")
+    if session_user is None:
+        return redirect(url_for("login"))
+    int_seconds = int(seconds)
+    ds = Datastore()
+    db_user = ds.find_user(session_user["userinfo"]["email"])
+    if db_user is None:
+        return "Unknown User", 404
+    ds.set_current_time(episode_id=episode_id, user_id=db_user.id, seconds=int_seconds)
+    return f"Time updated to {seconds} !"
 
 
 @app.route("/callback", methods=["GET", "POST"])
