@@ -7,7 +7,7 @@ from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from datastore import Datastore, EpisodeNotFound
+from datastore import Datastore, EpisodeNotFound, SubscriptionAlreadyExists
 from rss import assets_from_feed
 
 ENV_FILE = find_dotenv()
@@ -62,7 +62,7 @@ def podhome():
 def fetch_feeds():
     session_user = session.get("user")
     if session_user is None:
-        return redirect(url_for("logion"))
+        return redirect(url_for("login"))
     user_email = session_user["userinfo"]["email"]
     feed_list = request.form["feed_list"].split("\n")
     ds = Datastore()
@@ -70,9 +70,13 @@ def fetch_feeds():
     if db_user is None:
         db_user = ds.save_user(id=str(uuid4()), email=user_email)
     for feed in feed_list:
+        feed_id = str(uuid4())
+        try:
+            ds.subscribe(user_id=db_user.id, feed_id=feed_id, feed_url=feed)
+        except SubscriptionAlreadyExists:
+            return "You are already subscribed to this feed", 409
         episodes = assets_from_feed(feed)
-        feed_id = ds.save_feed(episodes)
-        ds.subscribe(user_id=db_user.id, feed_id=feed_id)
+        ds.save_feed(feed_id, episodes)
     return render_template(
         template_name_or_list="feed.html",
         episodes=ds.get_user_feeds(user_id=db_user.id),

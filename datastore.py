@@ -28,7 +28,7 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS user (id TEXT NOT NULL PRIMARY KEY, email TEXT UNIQUE );"
         )
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), FOREIGN KEY (user_id) REFERENCES user(id));"
+            "CREATE TABLE IF NOT EXISTS subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, feed_url TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), UNIQUE(user_id, feed_url), FOREIGN KEY (user_id) REFERENCES user(id));"
         )
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date TIMESTAMP NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
@@ -44,6 +44,7 @@ class Datastore:
         try:
             cursor.execute("INSERT INTO user (id, email) VALUES (?, ?);", (id, email))
         except sqlite3.IntegrityError:
+            connection.close()
             raise UserAlreadyExists
         connection.commit()
         connection.close()
@@ -59,15 +60,16 @@ class Datastore:
             return None
         return User(id=result[0], email=result[1])
 
-    def subscribe(self, user_id: str, feed_id: str) -> None:
+    def subscribe(self, user_id: str, feed_id: str, feed_url: str) -> None:
         connection = self._get_connection()
         cursor = connection.cursor()
         try:
             cursor.execute(
-                "INSERT INTO subscription (user_id, feed_id) VALUES (?, ?);",
-                (user_id, feed_id),
+                "INSERT INTO subscription (user_id, feed_id, feed_url) VALUES (?,?,?);",
+                (user_id, feed_id, feed_url),
             )
         except sqlite3.IntegrityError:
+            connection.close()
             raise SubscriptionAlreadyExists
         connection.commit()
         connection.close()
@@ -82,10 +84,9 @@ class Datastore:
         connection.close()
         return [Subscription(user_id=user_id, feed_id=row[0]) for row in result]
 
-    def save_feed(self, episodes: list[EpisodeAssets]) -> str:
+    def save_feed(self, feed_id: str, episodes: list[EpisodeAssets]) -> str:
         connection = self._get_connection()
         cursor = connection.cursor()
-        feed_id = str(uuid4())
         episodes_data = [
             (
                 str(uuid4()),
@@ -136,6 +137,7 @@ class Datastore:
             (episode_id,),
         )
         result = cursor.fetchone()
+        connection.close()
         if len(result) == 0:
             raise EpisodeNotFound
 
@@ -146,3 +148,4 @@ class Datastore:
             published_date=result[3],
         )
         return Episode(id=episode_id, assets=assets)
+
