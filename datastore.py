@@ -1,4 +1,3 @@
-import logging
 import sqlite3
 from typing import Optional
 from uuid import uuid4
@@ -18,24 +17,25 @@ class EpisodeNotFound(Exception): ...
 
 class Datastore:
 
-    def _get_connection(self):
+    def __init__(self) -> None:
+        self._init_database()
+
+    @staticmethod
+    def _init_database():
         connection = sqlite3.connect("poddb.db")
         cursor = connection.cursor()
-        res = cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='user';"
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS user (id TEXT NOT NULL PRIMARY KEY, email TEXT UNIQUE );"
         )
-        if res.fetchone() is None:
-            cursor.execute(
-                "CREATE TABLE user (id TEXT NOT NULL PRIMARY KEY, email TEXT UNIQUE );"
-            )
-            cursor.execute(
-                "CREATE TABLE subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), FOREIGN KEY (user_id) REFERENCES user(id));"
-            )
-            cursor.execute(
-                "CREATE TABLE episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date TIMESTAMP NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
-            )
-        connection.close()
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), FOREIGN KEY (user_id) REFERENCES user(id));"
+        )
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date TIMESTAMP NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
+        )
 
+
+    def _get_connection(self):
         return sqlite3.connect("poddb.db")
 
     def save_user(self, id: str, email: str) -> User:
