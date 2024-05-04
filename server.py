@@ -107,7 +107,7 @@ def play_episode():
     if total_seconds is not None:
         current_time = timedelta(seconds=total_seconds)
 
-    return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{episode.assets.download_link}{'#t='+str(current_time) if current_time is not None else ''}'>"
+    return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{episode.assets.download_link}{'#t='+str(current_time) if current_time is not None else ''}'></audio>"
 
 @app.post("/current-time/<episode_id>/<seconds>")
 def current_time(episode_id: str, seconds: str):

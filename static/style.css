@@ -1,9 +1,18 @@
 #player-container{
     position: fixed;
     top:0;
+    left:0;
     justify-content: space-around;
     display: flex;
-    width: 100%;
+    width: 100vw;
+}
+
+#player{
+    width:100%;
+}
+
+#player-control{
+    width:100%;
 }
 
 #ui{
