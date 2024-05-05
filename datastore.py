@@ -1,9 +1,20 @@
 import sqlite3
 from typing import Optional
 from uuid import uuid4
-
+from datetime import datetime
 from entities import Subscription, User
 from podcast import Episode, EpisodeAssets
+
+#adapters based on recipes from python sqlite3 docs
+
+def adapt_datetime_iso(val:datetime) -> str:
+    return val.isoformat()
+
+def convert_datetime(val: bytes) -> datetime:
+    return datetime.fromisoformat(val.decode())
+
+sqlite3.register_adapter(datetime, adapt_datetime_iso)
+sqlite3.register_converter("datetime", convert_datetime)
 
 
 class UserAlreadyExists(Exception): ...
@@ -22,6 +33,7 @@ class Datastore:
 
     def __init__(self, db_string: str) -> None:
         self.db_string: str = db_string
+        self.connection = sqlite3.connect(self.db_string)
         self._init_database()
 
     def _init_database(self):
@@ -41,7 +53,7 @@ class Datastore:
         )
 
     def _get_connection(self):
-        return sqlite3.connect("poddb.db")
+        return self.connection
 
     def save_user(self, id: str, email: str) -> User:
         connection = self._get_connection()
@@ -49,10 +61,8 @@ class Datastore:
         try:
             cursor.execute("INSERT INTO user (id, email) VALUES (?, ?);", (id, email))
         except sqlite3.IntegrityError:
-            connection.close()
             raise UserAlreadyExists
         connection.commit()
-        connection.close()
         return User(id=id, email=email)
 
     def get_user_by_email(self, email: str) -> User:
@@ -60,7 +70,6 @@ class Datastore:
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM user WHERE email = ?;", (email,))
         result = cursor.fetchone()
-        connection.close()
         if result is None:
             raise UnknownUser
         return User(id=result[0], email=result[1])
@@ -74,10 +83,8 @@ class Datastore:
                 (user_id, feed_id, feed_url),
             )
         except sqlite3.IntegrityError:
-            connection.close()
             raise SubscriptionAlreadyExists
         connection.commit()
-        connection.close()
 
     def find_subscriptions(self, user_id: str) -> list[Subscription]:
         connection = self._get_connection()
@@ -86,7 +93,6 @@ class Datastore:
             "SELECT feed_id FROM subscription WHERE user_id = ?;", (user_id,)
         )
         result = cursor.fetchall()
-        connection.close()
         return [Subscription(user_id=user_id, feed_id=row[0]) for row in result]
 
     def save_feed(self, feed_id: str, episodes: list[EpisodeAssets]) -> str:
@@ -108,7 +114,6 @@ class Datastore:
             episodes_data,
         )
         connection.commit()
-        connection.close()
         return feed_id
 
     def get_user_feeds(self, user_id: str) -> list[Episode]:
@@ -119,7 +124,6 @@ class Datastore:
             (user_id,),
         )
         result = cursor.fetchall()
-        connection.close()
         episodes = [
             Episode(
                 id=row[0],
@@ -142,8 +146,7 @@ class Datastore:
             (episode_id,),
         )
         result = cursor.fetchone()
-        connection.close()
-        if len(result) == 0:
+        if result is None:
             raise EpisodeNotFound
 
         assets = EpisodeAssets(
@@ -162,7 +165,6 @@ class Datastore:
             (episode_id, user_id, seconds, seconds),
         )
         connection.commit()
-        connection.close()
 
     def get_current_time(self, episode_id: str, user_id: str) -> Optional[int]:
         connection = self._get_connection()

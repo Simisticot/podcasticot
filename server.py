@@ -6,8 +6,7 @@ from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from datastore import (Datastore, EpisodeNotFound, SubscriptionAlreadyExists,
-                       UnknownUser)
+from datastore import Datastore, EpisodeNotFound, SubscriptionAlreadyExists, UnknownUser
 from podcast_service import PodcastService
 from rss import FeedParserRssParser
 
@@ -30,9 +29,15 @@ oauth.register(
     },
     server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration',
 )
-podcast_service = PodcastService(
-    datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser()
-)
+
+class PodcastConfiguration:
+    @property
+    def podcast_service(self) -> PodcastService:
+        return PodcastService(
+            datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser()
+        )
+
+
 
 
 @app.route("/")
@@ -52,6 +57,7 @@ def podhome():
     user_email = session_user["userinfo"]["email"]
     if user_email is None:
         return redirect(url_for("login"))
+    podcast_service = PodcastConfiguration().podcast_service
     try:
         db_user = podcast_service.find_user_by_email(user_email=user_email)
     except UnknownUser:
@@ -69,6 +75,7 @@ def subscribe_to_feed():
         return redirect(url_for("login"))
     user_email = session_user["userinfo"]["email"]
     feed_url = request.form["feed"]
+    podcast_service = PodcastConfiguration().podcast_service
     try:
         db_user = podcast_service.find_user_by_email(user_email=user_email)
     except UnknownUser:
@@ -89,6 +96,7 @@ def play_episode():
     if session_user is None:
         return redirect(url_for("login"))
     user_email = session_user["userinfo"]["email"]
+    podcast_service = PodcastConfiguration().podcast_service
     db_user = podcast_service.find_user_by_email(user_email=user_email)
     if db_user is None:
         return "Unknown User", 404
@@ -121,6 +129,7 @@ def current_time(episode_id: str, seconds: str):
         return redirect(url_for("login"))
     int_seconds = int(seconds)
     user_email = session_user["userinfo"]["email"]
+    podcast_service = PodcastConfiguration().podcast_service
     try:
         db_user = podcast_service.find_user_by_email(user_email=user_email)
     except UnknownUser:

@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Protocol
 
 import feedparser
@@ -33,3 +34,11 @@ class RssParser(Protocol):
 class FeedParserRssParser(RssParser):
     def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
         return assets_from_feed(url=feed_url)
+
+
+@dataclass
+class FakeRssParser(RssParser):
+    assets: list[EpisodeAssets]
+
+    def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
+        return self.assets.copy()
