@@ -1,5 +1,6 @@
 import feedparser
-
+from typing import Protocol
+from abc import abstractmethod
 from podcast import EpisodeAssets
 
 
@@ -17,3 +18,15 @@ def assets_from_feed_list_chronological(url_list: list[str]) -> list[EpisodeAsse
     all_assets.sort(reverse=True, key=lambda assets: assets.published_date)
 
     return all_assets
+
+
+class RssParser(Protocol):
+
+    @abstractmethod
+    def get_assets_from_feed(
+        self, feed_url: str
+    ) -> list[EpisodeAssets]: ...  # pragma : nocover
+
+class FeedParserRssParser(RssParser):
+    def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
+       return assets_from_feed(url=feed_url) 

@@ -15,14 +15,17 @@ class SubscriptionAlreadyExists(Exception): ...
 class EpisodeNotFound(Exception): ...
 
 
+class UnknownUser(Exception): ...
+
+
 class Datastore:
 
-    def __init__(self) -> None:
+    def __init__(self, db_string: str) -> None:
+        self.db_string: str = db_string
         self._init_database()
 
-    @staticmethod
-    def _init_database():
-        connection = sqlite3.connect("poddb.db")
+    def _init_database(self):
+        connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS user (id TEXT NOT NULL PRIMARY KEY, email TEXT UNIQUE );"
@@ -52,14 +55,14 @@ class Datastore:
         connection.close()
         return User(id=id, email=email)
 
-    def find_user(self, email: str) -> Optional[User]:
+    def get_user_by_email(self, email: str) -> User:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute("SELECT * FROM user WHERE email = ?;", (email,))
         result = cursor.fetchone()
         connection.close()
         if result is None:
-            return None
+            raise UnknownUser
         return User(id=result[0], email=result[1])
 
     def subscribe(self, user_id: str, feed_id: str, feed_url: str) -> None:

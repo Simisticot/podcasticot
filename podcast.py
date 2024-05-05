@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from time import mktime
 from typing import Optional
 
@@ -31,3 +31,9 @@ class EpisodeAssets:
 class Episode:
     id: str
     assets: EpisodeAssets
+
+
+@dataclass
+class PlayInfo:
+    episode: Episode
+    current_play_time: Optional[timedelta]

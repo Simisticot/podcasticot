@@ -1,15 +1,14 @@
 import json
-from datetime import timedelta
 from os import environ as env
 from urllib.parse import quote_plus, urlencode
-from uuid import uuid4
 
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from datastore import Datastore, EpisodeNotFound, SubscriptionAlreadyExists
-from rss import assets_from_feed
+from datastore import Datastore, EpisodeNotFound, SubscriptionAlreadyExists, UnknownUser
+from podcast_service import PodcastService
+from rss import FeedParserRssParser
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -30,6 +29,7 @@ oauth.register(
     },
     server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration',
 )
+podcast_service = PodcastService(datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser())
 
 
 @app.route("/")
@@ -49,13 +49,13 @@ def podhome():
     user_email = session_user["userinfo"]["email"]
     if user_email is None:
         return redirect(url_for("login"))
-    ds = Datastore()
-    db_user = ds.find_user(user_email)
-    if db_user is None:
-        db_user = ds.save_user(id=str(uuid4()), email=user_email)
+    try:
+        db_user = podcast_service.find_user_by_email(user_email=user_email)
+    except UnknownUser:
+        db_user = podcast_service.save_user(user_email=user_email)
     return render_template(
         template_name_or_list="podcast_home.html",
-        episodes=ds.get_user_feeds(db_user.id),
+        episodes=podcast_service.get_user_home_feed(user_id=db_user.id),
     )
 
 
@@ -65,21 +65,18 @@ def subscribe_to_feed():
     if session_user is None:
         return redirect(url_for("login"))
     user_email = session_user["userinfo"]["email"]
-    feed = request.form["feed"]
-    ds = Datastore()
-    db_user = ds.find_user(user_email)
-    if db_user is None:
-        db_user = ds.save_user(id=str(uuid4()), email=user_email)
-    feed_id = str(uuid4())
+    feed_url = request.form["feed"]
     try:
-        ds.subscribe(user_id=db_user.id, feed_id=feed_id, feed_url=feed)
+        db_user = podcast_service.find_user_by_email(user_email=user_email)
+    except UnknownUser:
+        db_user = podcast_service.save_user(user_email=user_email)
+    try:
+        podcast_service.subscribe_user_to_podcast(user_id=db_user.id, feed_url=feed_url)
     except SubscriptionAlreadyExists:
         return "You are already subscribed to this feed", 409
-    episodes = assets_from_feed(feed)
-    ds.save_feed(feed_id, episodes)
     return render_template(
         template_name_or_list="feed.html",
-        episodes=ds.get_user_feeds(user_id=db_user.id),
+        episodes=podcast_service.get_user_home_feed(user_id=db_user.id),
     )
 
 
@@ -89,23 +86,22 @@ def play_episode():
     if session_user is None:
         return redirect(url_for("login"))
     user_email = session_user["userinfo"]["email"]
-    ds = Datastore()
-    db_user = ds.find_user(user_email)
+    db_user = podcast_service.find_user_by_email(user_email=user_email)
     if db_user is None:
         return "Unknown User", 404
+    try:
+        db_user = podcast_service.find_user_by_email(user_email=user_email)
+    except UnknownUser:
+        db_user = podcast_service.save_user(user_email=user_email)
     episode_id = request.form.get("episode_id", None)
     if episode_id is None:
         return "No episode id provided", 400
     try:
-        episode = ds.get_episode(episode_id)
+        play_info = podcast_service.get_play_information(episode_id=episode_id, user_id=db_user.id)
     except EpisodeNotFound:
         return "Episode not found", 404
-    total_seconds = ds.get_current_time(episode_id=episode.id, user_id=db_user.id)
-    current_time = None
-    if total_seconds is not None:
-        current_time = timedelta(seconds=total_seconds)
 
-    return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{episode.assets.download_link}{'#t='+str(current_time) if current_time is not None else ''}'></audio>"
+    return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{play_info.episode.assets.download_link}{'#t='+str(play_info.current_play_time) if play_info.current_play_time is not None else ''}'></audio>"
 
 
 @app.post("/current-time/<episode_id>/<seconds>")
@@ -114,11 +110,12 @@ def current_time(episode_id: str, seconds: str):
     if session_user is None:
         return redirect(url_for("login"))
     int_seconds = int(seconds)
-    ds = Datastore()
-    db_user = ds.find_user(session_user["userinfo"]["email"])
-    if db_user is None:
-        return "Unknown User", 404
-    ds.set_current_time(episode_id=episode_id, user_id=db_user.id, seconds=int_seconds)
+    user_email = session_user["userinfo"]["email"]
+    try:
+        db_user = podcast_service.find_user_by_email(user_email=user_email)
+    except UnknownUser:
+         return "Unknown User", 404
+    podcast_service.update_current_play_time(episode_id=episode_id, user_id=db_user.id, seconds=int_seconds)
     return f"Time updated to {seconds} !"
 
 
