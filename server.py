@@ -6,7 +6,8 @@ from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from datastore import Datastore, EpisodeNotFound, SubscriptionAlreadyExists, UnknownUser
+from datastore import (Datastore, EpisodeNotFound, SubscriptionAlreadyExists,
+                       UnknownUser)
 from podcast_service import PodcastService
 from rss import FeedParserRssParser
 
@@ -29,7 +30,9 @@ oauth.register(
     },
     server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration',
 )
-podcast_service = PodcastService(datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser())
+podcast_service = PodcastService(
+    datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser()
+)
 
 
 @app.route("/")
@@ -97,11 +100,18 @@ def play_episode():
     if episode_id is None:
         return "No episode id provided", 400
     try:
-        play_info = podcast_service.get_play_information(episode_id=episode_id, user_id=db_user.id)
+        play_info = podcast_service.get_play_information(
+            episode_id=episode_id, user_id=db_user.id
+        )
     except EpisodeNotFound:
         return "Episode not found", 404
 
-    return f"<audio controls autoplay data-episode-id='{episode_id}' id='player-control' src='{play_info.episode.assets.download_link}{'#t='+str(play_info.current_play_time) if play_info.current_play_time is not None else ''}'></audio>"
+    rendered = render_template(
+        template_name_or_list="player-control.html",
+        play_info=play_info,
+        play_time_string=play_info.play_time_string(),
+    )
+    return rendered
 
 
 @app.post("/current-time/<episode_id>/<seconds>")
@@ -114,8 +124,10 @@ def current_time(episode_id: str, seconds: str):
     try:
         db_user = podcast_service.find_user_by_email(user_email=user_email)
     except UnknownUser:
-         return "Unknown User", 404
-    podcast_service.update_current_play_time(episode_id=episode_id, user_id=db_user.id, seconds=int_seconds)
+        return "Unknown User", 404
+    podcast_service.update_current_play_time(
+        episode_id=episode_id, user_id=db_user.id, seconds=int_seconds
+    )
     return f"Time updated to {seconds} !"
 
 

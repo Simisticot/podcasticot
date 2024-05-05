@@ -1,6 +1,8 @@
-import feedparser
-from typing import Protocol
 from abc import abstractmethod
+from typing import Protocol
+
+import feedparser
+
 from podcast import EpisodeAssets
 
 
@@ -27,6 +29,7 @@ class RssParser(Protocol):
         self, feed_url: str
     ) -> list[EpisodeAssets]: ...  # pragma : nocover
 
+
 class FeedParserRssParser(RssParser):
     def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
-       return assets_from_feed(url=feed_url) 
+        return assets_from_feed(url=feed_url)

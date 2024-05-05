@@ -37,3 +37,8 @@ class Episode:
 class PlayInfo:
     episode: Episode
     current_play_time: Optional[timedelta]
+
+    def play_time_string(self) -> str:
+        if self.current_play_time is None:
+            return ""
+        return f"#t={str(self.current_play_time)}"
