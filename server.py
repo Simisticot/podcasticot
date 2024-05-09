@@ -6,7 +6,8 @@ from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from datastore import Datastore, EpisodeNotFound, SubscriptionAlreadyExists, UnknownUser
+from datastore import (Datastore, EpisodeNotFound, SubscriptionAlreadyExists,
+                       UnknownUser)
 from podcast_service import PodcastService
 from rss import FeedParserRssParser
 
@@ -30,14 +31,13 @@ oauth.register(
     server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration',
 )
 
+
 class PodcastConfiguration:
     @property
     def podcast_service(self) -> PodcastService:
         return PodcastService(
             datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser()
         )
-
-
 
 
 @app.route("/")

@@ -59,3 +59,41 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
     assert len(alices_feed) == 1
     episode = alices_feed[0]
     assert episode.assets.title == "test title"
+    assert isinstance(episode.assets.published_date, datetime)
+
+
+def test_update_feed(service_factory: Callable[..., PodcastService]) -> None:
+    service = service_factory(
+        rss_feed_episode_assets=[
+            EpisodeAssets(
+                title="test title",
+                description="test_description",
+                download_link="test_download_link",
+                published_date=datetime(year=2000, month=1, day=1),
+            )
+        ]
+    )
+
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this doesn't matter")
+
+    alices_feed = service.get_user_home_feed(user_id=alice.id)
+    assert len(alices_feed) == 1
+
+    # add an episode to the fake rss feed
+    assert isinstance(service.rss_parser, FakeRssParser)
+    service.rss_parser.assets.append(
+        EpisodeAssets(
+            title="second_test_title",
+            description="second_test_description",
+            download_link="second_test_download_link",
+            published_date=datetime(year=2000, month=1, day=2),  # a day later
+        )
+    )
+
+    service.update_all_feeds()
+
+    alices_new_feed = service.get_user_home_feed(user_id=alice.id)
+
+    assert len(alices_new_feed) == 2
+

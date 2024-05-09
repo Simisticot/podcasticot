@@ -49,3 +49,17 @@ class PodcastService:
         self.datastore.set_current_time(
             episode_id=episode_id, user_id=user_id, seconds=seconds
         )
+
+    def update_all_feeds(self) -> None:
+        feeds = self.datastore.get_all_feeds()
+        for feed in feeds:
+            feed_episode_assets = self.rss_parser.get_assets_from_feed(
+                feed_url=feed.url
+            )
+            feed_latest_episode = self.datastore.get_latest_episode(feed_id=feed.id)
+            new_episode_assets = [
+                episode
+                for episode in feed_episode_assets
+                if episode.published_date > feed_latest_episode.assets.published_date
+            ]
+            self.datastore.save_feed(feed_id=feed.id, episodes=new_episode_assets)

@@ -1,20 +1,10 @@
 import sqlite3
+from datetime import datetime
 from typing import Optional
 from uuid import uuid4
-from datetime import datetime
+
 from entities import Subscription, User
-from podcast import Episode, EpisodeAssets
-
-#adapters based on recipes from python sqlite3 docs
-
-def adapt_datetime_iso(val:datetime) -> str:
-    return val.isoformat()
-
-def convert_datetime(val: bytes) -> datetime:
-    return datetime.fromisoformat(val.decode())
-
-sqlite3.register_adapter(datetime, adapt_datetime_iso)
-sqlite3.register_converter("datetime", convert_datetime)
+from podcast import Episode, EpisodeAssets, Feed
 
 
 class UserAlreadyExists(Exception): ...
@@ -46,7 +36,7 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, feed_url TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), UNIQUE(user_id, feed_url), FOREIGN KEY (user_id) REFERENCES user(id));"
         )
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date TIMESTAMP NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
+            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
         )
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS current_time (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
@@ -104,7 +94,7 @@ class Datastore:
                 ep.title,
                 ep.description,
                 ep.download_link,
-                ep.published_date,
+                ep.published_date.timestamp(),
                 feed_id,
             )
             for ep in episodes
@@ -131,7 +121,7 @@ class Datastore:
                     title=row[1],
                     description=row[2],
                     download_link=row[3],
-                    published_date=row[4],
+                    published_date=datetime.fromtimestamp(row[4]),
                 ),
             )
             for row in result
@@ -153,7 +143,7 @@ class Datastore:
             title=result[0],
             description=result[1],
             download_link=result[2],
-            published_date=result[3],
+            published_date=datetime.fromtimestamp(result[3]),
         )
         return Episode(id=episode_id, assets=assets)
 
@@ -181,3 +171,32 @@ class Datastore:
             return None
         seconds = result[0]
         return seconds
+
+    def get_all_feeds(self) -> list[Feed]:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute("select feed_id, feed_url from subscription")
+        result = cursor.fetchall()
+        feeds = [Feed(id=row[0], url=row[1]) for row in result]
+        return feeds
+
+    def get_latest_episode(self, feed_id: str) -> Episode:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "select episode_id, title, description ,download_link, published_date from episode where feed_id = ? order by published_date desc limit 1;",
+            (feed_id,),
+        )
+        result = cursor.fetchone()
+        if result is None:
+            raise EpisodeNotFound
+        episode = Episode(
+            id=result[0],
+            assets=EpisodeAssets(
+                title=result[1],
+                description=result[2],
+                download_link=result[3],
+                published_date=datetime.fromtimestamp(result[4]),
+            ),
+        )
+        return episode

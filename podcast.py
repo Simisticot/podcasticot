@@ -42,3 +42,9 @@ class PlayInfo:
         if self.current_play_time is None:
             return ""
         return f"#t={str(self.current_play_time)}"
+
+
+@dataclass
+class Feed:
+    id: str
+    url: str
