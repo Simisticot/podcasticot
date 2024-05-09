@@ -1,10 +1,10 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
 
 from entities import Subscription, User
-from podcast import Episode, EpisodeAssets, Feed
+from podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
 
 
 class UserAlreadyExists(Exception): ...
@@ -39,7 +39,7 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
         )
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS current_time (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
+            "CREATE TABLE IF NOT EXISTS previous_listen (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, time INT, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
         )
 
     def _get_connection(self):
@@ -147,30 +147,62 @@ class Datastore:
         )
         return Episode(id=episode_id, assets=assets)
 
-    def set_current_time(self, episode_id: str, user_id: str, seconds: int) -> None:
+    def set_current_time(
+        self, episode_id: str, user_id: str, seconds: int, time: datetime
+    ) -> None:
         connection = self._get_connection()
         cursor = connection.cursor()
+        time_timestamp = time.timestamp()
         cursor.execute(
-            "insert into current_time (episode_id, user_id, seconds) values (?,?,?) on conflict(episode_id, user_id) do update set seconds=?",
-            (episode_id, user_id, seconds, seconds),
+            "insert into previous_listen (episode_id, user_id, seconds, time) values (?,?,?,?) on conflict(episode_id, user_id) do update set seconds=?, time=?",
+            (episode_id, user_id, seconds, time_timestamp, seconds, time_timestamp),
         )
         connection.commit()
 
-    def get_current_time(self, episode_id: str, user_id: str) -> Optional[int]:
+    def get_previous_listen(
+        self, user_id: str, episode_id: str
+    ) -> Optional[PreviousListen]:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select seconds from current_time where episode_id = ? and user_id = ?;",
-            (
-                episode_id,
-                user_id,
-            ),
+            "select seconds, time from previous_listen where user_id = ? and episode_id = ?;",
+            (user_id, episode_id),
         )
         result = cursor.fetchone()
         if result is None:
             return None
-        seconds = result[0]
-        return seconds
+        return PreviousListen(
+            time_listened=timedelta(seconds=result[0]),
+            time=datetime.fromtimestamp(result[1]),
+        )
+
+    def get_latest_listen_play_info(self, user_id: str) -> Optional[PlayInfo]:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "select episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, previous_listen.seconds, previous_listen.time from previous_listen join episode on previous_listen.episode_id = episode.episode_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
+            (user_id,),
+        )
+        result = cursor.fetchone()
+        if result is None:
+            return None
+
+        play_info = PlayInfo(
+            episode=Episode(
+                id=result[0],
+                assets=EpisodeAssets(
+                    title=result[1],
+                    description=result[2],
+                    download_link=result[3],
+                    published_date=datetime.fromtimestamp(result[4]),
+                ),
+            ),
+            previous_listen=PreviousListen(
+                time_listened=timedelta(seconds=result[5]),
+                time=datetime.fromtimestamp(result[6]),
+            ),
+        )
+        return play_info
 
     def get_all_feeds(self) -> list[Feed]:
         connection = self._get_connection()

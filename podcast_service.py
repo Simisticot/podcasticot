@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime
+from typing import Optional
 from uuid import uuid4
 
 from datastore import Datastore
@@ -35,19 +36,16 @@ class PodcastService:
 
     def get_play_information(self, episode_id: str, user_id: str) -> PlayInfo:
         episode = self.datastore.get_episode(episode_id=episode_id)
-        seconds_played = self.datastore.get_current_time(
-            episode_id=episode_id, user_id=user_id
+        previous_listen = self.datastore.get_previous_listen(
+            user_id=user_id, episode_id=episode_id
         )
-        current_play_time = (
-            timedelta(seconds=seconds_played) if seconds_played is not None else None
-        )
-        return PlayInfo(episode=episode, current_play_time=current_play_time)
+        return PlayInfo(episode=episode, previous_listen=previous_listen)
 
     def update_current_play_time(
         self, episode_id: str, user_id: str, seconds: int
     ) -> None:
         self.datastore.set_current_time(
-            episode_id=episode_id, user_id=user_id, seconds=seconds
+            episode_id=episode_id, user_id=user_id, seconds=seconds, time=datetime.now()
         )
 
     def update_all_feeds(self) -> None:
@@ -63,3 +61,6 @@ class PodcastService:
                 if episode.published_date > feed_latest_episode.assets.published_date
             ]
             self.datastore.save_feed(feed_id=feed.id, episodes=new_episode_assets)
+
+    def get_latest_listen_play_info(self, user_id: str) -> Optional[PlayInfo]:
+        return self.datastore.get_latest_listen_play_info(user_id)

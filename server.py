@@ -62,9 +62,16 @@ def podhome():
         db_user = podcast_service.find_user_by_email(user_email=user_email)
     except UnknownUser:
         db_user = podcast_service.save_user(user_email=user_email)
+    play_info = podcast_service.get_latest_listen_play_info(user_id=db_user.id)
     return render_template(
         template_name_or_list="podcast_home.html",
         episodes=podcast_service.get_user_home_feed(user_id=db_user.id),
+        play_info=play_info,
+        play_time_string=(
+            play_info.previous_listen.play_time_string()
+            if play_info is not None and play_info.previous_listen is not None
+            else ""
+        ),
     )
 
 
@@ -117,7 +124,11 @@ def play_episode():
     rendered = render_template(
         template_name_or_list="player-control.html",
         play_info=play_info,
-        play_time_string=play_info.play_time_string(),
+        play_time_string=(
+            play_info.previous_listen.play_time_string()
+            if play_info.previous_listen is not None
+            else ""
+        ),
     )
     return rendered
 

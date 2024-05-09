@@ -10,6 +10,9 @@
 <body>
 <div id="player-container">
     <div id="player">
+                {% if play_info %}
+                {% include "player-control.html" %}
+                {% endif %}
     </div>
 </div>
 <div>

@@ -36,15 +36,19 @@ class Episode:
 @dataclass
 class PlayInfo:
     episode: Episode
-    current_play_time: Optional[timedelta]
-
-    def play_time_string(self) -> str:
-        if self.current_play_time is None:
-            return ""
-        return f"#t={str(self.current_play_time)}"
+    previous_listen: Optional[PreviousListen]
 
 
 @dataclass
 class Feed:
     id: str
     url: str
+
+
+@dataclass
+class PreviousListen:
+    time_listened: timedelta
+    time: datetime
+
+    def play_time_string(self) -> str:
+        return f"#t={str(self.time_listened)}"
