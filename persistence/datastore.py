@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
 
-from entities import Subscription, User
-from podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
+from business.entities import Subscription, User
+from business.podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
 
 
 class UserAlreadyExists(Exception): ...

@@ -6,10 +6,10 @@ from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 
-from datastore import (Datastore, EpisodeNotFound, SubscriptionAlreadyExists,
+from persistence.datastore import (Datastore, EpisodeNotFound, SubscriptionAlreadyExists,
                        UnknownUser)
-from podcast_service import PodcastService
-from rss import FeedParserRssParser
+from business.podcast_service import PodcastService
+from business.rss import FeedParserRssParser
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:

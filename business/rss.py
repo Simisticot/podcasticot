@@ -4,7 +4,7 @@ from typing import Protocol
 
 import feedparser
 
-from podcast import EpisodeAssets
+from business.podcast import EpisodeAssets
 
 
 def assets_from_feed(url: str) -> list[EpisodeAssets]:

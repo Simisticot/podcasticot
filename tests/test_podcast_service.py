@@ -1,13 +1,12 @@
 from datetime import datetime, timedelta
-from types import new_class
 from typing import Callable, Optional
 
 import pytest
 
-from datastore import Datastore, UnknownUser
-from podcast import EpisodeAssets, PreviousListen
-from podcast_service import PodcastService
-from rss import FakeRssParser
+from persistence.datastore import Datastore, UnknownUser
+from business.podcast import EpisodeAssets, PreviousListen
+from business.podcast_service import PodcastService
+from business.rss import FakeRssParser
 
 
 @pytest.fixture

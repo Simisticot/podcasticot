@@ -3,10 +3,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from datastore import Datastore
-from entities import User
-from podcast import Episode, PlayInfo
-from rss import RssParser
+from persistence.datastore import Datastore
+from business.entities import User
+from business.podcast import Episode, PlayInfo
+from business.rss import RssParser
 
 
 @dataclass
