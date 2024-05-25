@@ -36,7 +36,7 @@ class PodcastConfiguration:
     @property
     def podcast_service(self) -> PodcastService:
         return PodcastService(
-            datastore=Datastore("poddb.db"), rss_parser=FeedParserRssParser()
+            datastore=Datastore("db/poddb.db"), rss_parser=FeedParserRssParser()
         )
 
 

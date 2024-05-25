@@ -4,5 +4,5 @@
 .directory
 .idea
 __pycache__
-poddb.db
+db/*
 venv
