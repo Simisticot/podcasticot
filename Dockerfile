@@ -10,6 +10,6 @@ COPY persistence/ /podcasticot/persistence/
 
 RUN pip install -r requirements.txt --no-cache-dir
 
-EXPOSE 8700
+EXPOSE 80
 
-CMD ["gunicorn", "server:app", "-b", "0.0.0.0:8700", "-w", "4"]
+CMD ["gunicorn", "server:app", "-b", "0.0.0.0:80", "-w", "4"]
