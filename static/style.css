@@ -18,3 +18,11 @@
 #ui{
     margin-top: 50px;
 }
+
+#subscription-form form{
+    display:flex;
+    flex-direction: column;
+    width: 50vw;
+    height: 100px;
+    justify-content: space-between;
+}

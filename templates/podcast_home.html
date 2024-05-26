@@ -18,14 +18,14 @@
 <div>
     <div id="ui">
         <div>
-            <h1>Subscribe</h1>
-            <form hx-post="/subscribe-to-feed" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
-                <label for="#new-feed">Subscribe to a new feed</label>
-                <br>
-                <input type="text" id="#new-feed"  name="feed">
-                <br>
-                <button type="submit">Subscribe</button>
-            </form>
+            <div id="subscription-form">
+                <h1>Subscribe</h1>
+                <form hx-post="/subscribe-to-feed" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
+                    <label for="#new-feed">Subscribe to a new feed</label>
+                    <input type="text" id="#new-feed"  name="feed">
+                    <button type="submit">Subscribe</button>
+                </form>
+            </div>
             <div id="user-feeds-timeline">{% include "feed.html" %}</div>
         </div>
     </div>
