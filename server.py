@@ -42,12 +42,7 @@ class PodcastConfiguration:
 
 @app.route("/")
 def home():
-    return render_template(
-        "home.html",
-        session=session.get("user"),
-        pretty=json.dumps(session.get("user"), indent=4),
-    )
-
+    return redirect(url_for("podhome"))
 
 @app.route("/podhome")
 def podhome():
