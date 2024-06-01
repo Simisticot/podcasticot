@@ -12,10 +12,10 @@ from business.rss import FakeRssParser
 @pytest.fixture
 def service_factory() -> Callable[..., PodcastService]:
     def factory(
-        rss_feed_episode_assets: Optional[list[EpisodeAssets]] = None,
+        rss_feed_episode_assets: Optional[dict[str, list[EpisodeAssets]]] = None,
     ) -> PodcastService:
         if rss_feed_episode_assets is None:
-            rss_feed_episode_assets = []
+            rss_feed_episode_assets = {}
         return PodcastService(
             datastore=Datastore(":memory:"),
             rss_parser=FakeRssParser(assets=rss_feed_episode_assets),
@@ -42,18 +42,20 @@ def test_find_user_fails_for_nonexistent_user(service: PodcastService) -> None:
 
 def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
-        rss_feed_episode_assets=[
-            EpisodeAssets(
-                title="test title",
-                description="test_description",
-                download_link="test_download_link",
-                published_date=datetime.now(),
-            )
-        ]
+        rss_feed_episode_assets={
+            "this matters": [
+                EpisodeAssets(
+                    title="test title",
+                    description="test_description",
+                    download_link="test_download_link",
+                    published_date=datetime.now(),
+                )
+            ]
+        }
     )
 
     alice = service.save_user("alice@example.com")
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this doesn't matter")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     alices_feed = service.get_user_home_feed(user_id=alice.id)
     assert len(alices_feed) == 1
@@ -62,27 +64,45 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
     assert isinstance(episode.assets.published_date, datetime)
 
 
-def test_update_feed(service_factory: Callable[..., PodcastService]) -> None:
+def test_update_single_users_feed(
+    service_factory: Callable[..., PodcastService]
+) -> None:
     service = service_factory(
-        rss_feed_episode_assets=[
-            EpisodeAssets(
-                title="test title",
-                description="test_description",
-                download_link="test_download_link",
-                published_date=datetime(year=2000, month=1, day=1),
-            )
-        ]
+        rss_feed_episode_assets={
+            "this matters": [
+                EpisodeAssets(
+                    title="test title",
+                    description="test_description",
+                    download_link="test_download_link",
+                    published_date=datetime(year=2000, month=1, day=1),
+                )
+            ],
+            "this is different": [
+                EpisodeAssets(
+                    title="other test title",
+                    description="other test description",
+                    download_link="other_test_download_link",
+                    published_date=datetime(year=2000, month=1, day=1),
+                )
+            ],
+        }
     )
 
     alice = service.save_user("alice@example.com")
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this doesn't matter")
+    bob = service.save_user("bob@example.com")
+
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
 
     alices_feed = service.get_user_home_feed(user_id=alice.id)
+    bobs_feed = service.get_user_home_feed(user_id=bob.id)
+
     assert len(alices_feed) == 1
+    assert len(bobs_feed) == 1
 
     # add an episode to the fake rss feed
     assert isinstance(service.rss_parser, FakeRssParser)
-    service.rss_parser.assets.append(
+    service.rss_parser.assets["this matters"].append(
         EpisodeAssets(
             title="second_test_title",
             description="second_test_description",
@@ -90,34 +110,108 @@ def test_update_feed(service_factory: Callable[..., PodcastService]) -> None:
             published_date=datetime(year=2000, month=1, day=2),  # a day later
         )
     )
+    service.rss_parser.assets["this is different"].append(
+        EpisodeAssets(
+            title="other second_test_title",
+            description="other second_test_description",
+            download_link="other second_test_download_link",
+            published_date=datetime(year=2000, month=1, day=2),  # a day later
+        )
+    )
+
+    service.update_user_feeds(user_id=bob.id)
+
+    alices_new_feed = service.get_user_home_feed(user_id=alice.id)
+    bobs_new_feed = service.get_user_home_feed(user_id=bob.id)
+
+    assert len(alices_new_feed) == 1
+    assert len(bobs_new_feed) == 2
+
+
+def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> None:
+    service = service_factory(
+        rss_feed_episode_assets={
+            "this matters": [
+                EpisodeAssets(
+                    title="test title",
+                    description="test_description",
+                    download_link="test_download_link",
+                    published_date=datetime(year=2000, month=1, day=1),
+                )
+            ],
+            "this is different": [
+                EpisodeAssets(
+                    title="other test title",
+                    description="other test description",
+                    download_link="other_test_download_link",
+                    published_date=datetime(year=2000, month=1, day=1),
+                )
+            ],
+        }
+    )
+
+    alice = service.save_user("alice@example.com")
+    bob = service.save_user("bob@example.com")
+
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
+
+    alices_feed = service.get_user_home_feed(user_id=alice.id)
+    bobs_feed = service.get_user_home_feed(user_id=bob.id)
+
+    assert len(alices_feed) == 1
+    assert len(bobs_feed) == 1
+
+    # add an episode to the fake rss feed
+    assert isinstance(service.rss_parser, FakeRssParser)
+    service.rss_parser.assets["this matters"].append(
+        EpisodeAssets(
+            title="second_test_title",
+            description="second_test_description",
+            download_link="second_test_download_link",
+            published_date=datetime(year=2000, month=1, day=2),  # a day later
+        )
+    )
+    service.rss_parser.assets["this is different"].append(
+        EpisodeAssets(
+            title="other second_test_title",
+            description="other second_test_description",
+            download_link="other second_test_download_link",
+            published_date=datetime(year=2000, month=1, day=2),  # a day later
+        )
+    )
 
     service.update_all_feeds()
 
     alices_new_feed = service.get_user_home_feed(user_id=alice.id)
+    bobs_new_feed = service.get_user_home_feed(user_id=bob.id)
 
     assert len(alices_new_feed) == 2
+    assert len(bobs_new_feed) == 2
 
 
 def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
-        rss_feed_episode_assets=[
-            EpisodeAssets(
-                title="test title",
-                description="test_description",
-                download_link="test_download_link",
-                published_date=datetime(year=2000, month=1, day=1),
-            ),
-            EpisodeAssets(
-                title="second_test_title",
-                description="second_test_description",
-                download_link="second_test_download_link",
-                published_date=datetime(year=2000, month=1, day=2),
-            ),
-        ]
+        rss_feed_episode_assets={
+            "this matters": [
+                EpisodeAssets(
+                    title="test title",
+                    description="test_description",
+                    download_link="test_download_link",
+                    published_date=datetime(year=2000, month=1, day=1),
+                ),
+                EpisodeAssets(
+                    title="second_test_title",
+                    description="second_test_description",
+                    download_link="second_test_download_link",
+                    published_date=datetime(year=2000, month=1, day=2),
+                ),
+            ]
+        }
     )
 
     alice = service.save_user("alice@example.com")
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this doesn't matter")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     alices_feed = service.get_user_home_feed(alice.id)
     episode = alices_feed[0]
     service.update_current_play_time(

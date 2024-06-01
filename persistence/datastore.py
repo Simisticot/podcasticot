@@ -106,7 +106,7 @@ class Datastore:
         connection.commit()
         return feed_id
 
-    def get_user_feeds(self, user_id: str) -> list[Episode]:
+    def get_user_home_feed(self, user_id: str) -> list[Episode]:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
@@ -203,6 +203,17 @@ class Datastore:
             ),
         )
         return play_info
+
+    def get_user_subscribed_feeds(self, user_id) -> list[Feed]:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "select feed_id, feed_url from subscription where user_id = ?;",
+            (user_id,),
+        )
+        result = cursor.fetchall()
+        feeds = [Feed(id=row[0], url=row[1]) for row in result]
+        return feeds
 
     def get_all_feeds(self) -> list[Feed]:
         connection = self._get_connection()

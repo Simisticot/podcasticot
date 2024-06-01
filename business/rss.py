@@ -38,7 +38,11 @@ class FeedParserRssParser(RssParser):
 
 @dataclass
 class FakeRssParser(RssParser):
-    assets: list[EpisodeAssets]
+    assets: dict[str, list[EpisodeAssets]]
 
     def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
-        return self.assets.copy()
+        assets = self.assets.get(feed_url)
+        if assets is None:
+            raise RuntimeError("No assets for this url")
+
+        return assets.copy()
