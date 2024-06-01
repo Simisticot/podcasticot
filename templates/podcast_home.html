@@ -15,7 +15,7 @@
                 {% endif %}
     </div>
 </div>
-<div>
+<div id="form-plus-timeline">
     <div id="ui">
         <div>
             <div id="subscription-form">
@@ -27,7 +27,7 @@
                 </form>
             </div>
             <div>
-                        <button hx-trigger="click" hx-post="/refresh" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
+                        <button id="refresh" hx-trigger="click" hx-post="/refresh" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
                             Refresh feed
                         </button>
             </div>

@@ -1,9 +1,12 @@
 {% for episode in  episodes %}
-<h2> {{ episode.assets.title }}</h2>
-<div>
-<p>{% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}</p>
+<div class="episode-container">
+    <h2> {{ episode.assets.title }}</h2>
+    <div class="episode-description">
+    {% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}
+    </div>
+    <form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
+        <button type="submit" value="{{ episode.id }}" class="play-button"  name="episode_id">&#9654;</button>
+    </form>
 </div>
-<form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
-    <button type="submit" value="{{ episode.id }}"  name="episode_id">Play</button>
-</form>
+<hr>
 {% endfor %}
