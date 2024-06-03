@@ -7,42 +7,32 @@ import feedparser
 from business.podcast import EpisodeAssets
 
 
-def assets_from_feed(url: str) -> list[EpisodeAssets]:
-    feed = feedparser.parse(url)
-    assets = [EpisodeAssets.from_feed_entry(entry) for entry in feed["entries"]]
-    return assets
-
-
-def assets_from_feed_list_chronological(url_list: list[str]) -> list[EpisodeAssets]:
-    all_assets = []
-    for url in url_list:
-        all_assets.extend(assets_from_feed(url))
-
-    all_assets.sort(reverse=True, key=lambda assets: assets.published_date)
-
-    return all_assets
+@dataclass
+class PodcastImport:
+    cover_art_url: str
+    episode_assets: list[EpisodeAssets]
 
 
 class RssParser(Protocol):
 
     @abstractmethod
-    def get_assets_from_feed(
-        self, feed_url: str
-    ) -> list[EpisodeAssets]: ...  # pragma : nocover
+    def import_feed(self, feed_url: str) -> PodcastImport: ...
 
 
 class FeedParserRssParser(RssParser):
-    def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
-        return assets_from_feed(url=feed_url)
+    def import_feed(self, feed_url: str) -> PodcastImport:
+        feed = feedparser.parse(feed_url)
+        assets = [EpisodeAssets.from_feed_entry(entry) for entry in feed["entries"]]
+        return PodcastImport(cover_art_url=feed.feed.image["href"], episode_assets=assets)
 
 
 @dataclass
 class FakeRssParser(RssParser):
-    assets: dict[str, list[EpisodeAssets]]
+    imports: dict[str, PodcastImport]
 
-    def get_assets_from_feed(self, feed_url: str) -> list[EpisodeAssets]:
-        assets = self.assets.get(feed_url)
-        if assets is None:
+    def import_feed(self, feed_url: str) -> PodcastImport:
+        podcast_import = self.imports.get(feed_url)
+        if podcast_import is None:
             raise RuntimeError("No assets for this url")
 
-        return assets.copy()
+        return podcast_import

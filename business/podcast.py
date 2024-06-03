@@ -31,6 +31,7 @@ class EpisodeAssets:
 class Episode:
     id: str
     assets: EpisodeAssets
+    cover_art_url: str
 
 
 @dataclass
@@ -43,6 +44,7 @@ class PlayInfo:
 class Feed:
     id: str
     url: str
+    cover_art_url: str
 
 
 @dataclass

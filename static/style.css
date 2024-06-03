@@ -3,7 +3,7 @@ body {
 }
 
 h2{
-    margin-bottom: 0;
+    margin: 0;
 }
 
 #player-container{
@@ -63,3 +63,24 @@ button:hover{
 .play-button{
     margin-top: 12px;
 }
+
+.episode-thumbnail{
+    width:112px;
+    border-radius: 10px;
+}
+
+.thumbnail-container{
+    margin-top: 16px;
+}
+
+
+.episode-data{
+    padding: 16px;
+}
+
+.episode-container{
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+}
+

@@ -6,19 +6,32 @@ import pytest
 from persistence.datastore import Datastore, UnknownUser
 from business.podcast import EpisodeAssets, PreviousListen
 from business.podcast_service import PodcastService
-from business.rss import FakeRssParser
+from business.rss import FakeRssParser, PodcastImport
+
+
+class EpisodeFactory:
+    @classmethod
+    def build(cls, published_date: Optional[datetime] = None) -> EpisodeAssets:
+        if published_date is None:
+            published_date = datetime.now()
+        return EpisodeAssets(
+            title="test title",
+            description="test_description",
+            download_link="test_download_link",
+            published_date=published_date,
+        )
 
 
 @pytest.fixture
 def service_factory() -> Callable[..., PodcastService]:
     def factory(
-        rss_feed_episode_assets: Optional[dict[str, list[EpisodeAssets]]] = None,
+        rss_feed_podcasts: Optional[dict[str, PodcastImport]] = None,
     ) -> PodcastService:
-        if rss_feed_episode_assets is None:
-            rss_feed_episode_assets = {}
+        if rss_feed_podcasts is None:
+            rss_feed_podcasts = {}
         return PodcastService(
             datastore=Datastore(":memory:"),
-            rss_parser=FakeRssParser(assets=rss_feed_episode_assets),
+            rss_parser=FakeRssParser(imports=rss_feed_podcasts),
         )
 
     return factory
@@ -42,15 +55,11 @@ def test_find_user_fails_for_nonexistent_user(service: PodcastService) -> None:
 
 def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
-        rss_feed_episode_assets={
-            "this matters": [
-                EpisodeAssets(
-                    title="test title",
-                    description="test_description",
-                    download_link="test_download_link",
-                    published_date=datetime.now(),
-                )
-            ]
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[EpisodeFactory.build()],
+                cover_art_url="Fake cover url",
+            )
         }
     )
 
@@ -68,23 +77,23 @@ def test_update_single_users_feed(
     service_factory: Callable[..., PodcastService]
 ) -> None:
     service = service_factory(
-        rss_feed_episode_assets={
-            "this matters": [
-                EpisodeAssets(
-                    title="test title",
-                    description="test_description",
-                    download_link="test_download_link",
-                    published_date=datetime(year=2000, month=1, day=1),
-                )
-            ],
-            "this is different": [
-                EpisodeAssets(
-                    title="other test title",
-                    description="other test description",
-                    download_link="other_test_download_link",
-                    published_date=datetime(year=2000, month=1, day=1),
-                )
-            ],
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeFactory.build(
+                        published_date=datetime(year=2000, month=1, day=1),
+                    )
+                ],
+                cover_art_url="Fake cover url",
+            ),
+            "this is different": PodcastImport(
+                episode_assets=[
+                    EpisodeFactory.build(
+                        published_date=datetime(year=2000, month=1, day=1),
+                    )
+                ],
+                cover_art_url="Fake cover url",
+            ),
         }
     )
 
@@ -102,7 +111,7 @@ def test_update_single_users_feed(
 
     # add an episode to the fake rss feed
     assert isinstance(service.rss_parser, FakeRssParser)
-    service.rss_parser.assets["this matters"].append(
+    service.rss_parser.imports["this matters"].episode_assets.append(
         EpisodeAssets(
             title="second_test_title",
             description="second_test_description",
@@ -110,7 +119,7 @@ def test_update_single_users_feed(
             published_date=datetime(year=2000, month=1, day=2),  # a day later
         )
     )
-    service.rss_parser.assets["this is different"].append(
+    service.rss_parser.imports["this is different"].episode_assets.append(
         EpisodeAssets(
             title="other second_test_title",
             description="other second_test_description",
@@ -130,23 +139,29 @@ def test_update_single_users_feed(
 
 def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
-        rss_feed_episode_assets={
-            "this matters": [
-                EpisodeAssets(
-                    title="test title",
-                    description="test_description",
-                    download_link="test_download_link",
-                    published_date=datetime(year=2000, month=1, day=1),
-                )
-            ],
-            "this is different": [
-                EpisodeAssets(
-                    title="other test title",
-                    description="other test description",
-                    download_link="other_test_download_link",
-                    published_date=datetime(year=2000, month=1, day=1),
-                )
-            ],
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeAssets(
+                        title="test title",
+                        description="test_description",
+                        download_link="test_download_link",
+                        published_date=datetime(year=2000, month=1, day=1),
+                    )
+                ],
+                cover_art_url="Fake cover url",
+            ),
+            "this is different": PodcastImport(
+                episode_assets=[
+                    EpisodeAssets(
+                        title="other test title",
+                        description="other test description",
+                        download_link="other_test_download_link",
+                        published_date=datetime(year=2000, month=1, day=1),
+                    )
+                ],
+                cover_art_url="Fake cover url",
+            ),
         }
     )
 
@@ -164,7 +179,7 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
 
     # add an episode to the fake rss feed
     assert isinstance(service.rss_parser, FakeRssParser)
-    service.rss_parser.assets["this matters"].append(
+    service.rss_parser.imports["this matters"].episode_assets.append(
         EpisodeAssets(
             title="second_test_title",
             description="second_test_description",
@@ -172,7 +187,7 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
             published_date=datetime(year=2000, month=1, day=2),  # a day later
         )
     )
-    service.rss_parser.assets["this is different"].append(
+    service.rss_parser.imports["this is different"].episode_assets.append(
         EpisodeAssets(
             title="other second_test_title",
             description="other second_test_description",
@@ -192,21 +207,24 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
 
 def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
-        rss_feed_episode_assets={
-            "this matters": [
-                EpisodeAssets(
-                    title="test title",
-                    description="test_description",
-                    download_link="test_download_link",
-                    published_date=datetime(year=2000, month=1, day=1),
-                ),
-                EpisodeAssets(
-                    title="second_test_title",
-                    description="second_test_description",
-                    download_link="second_test_download_link",
-                    published_date=datetime(year=2000, month=1, day=2),
-                ),
-            ]
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeAssets(
+                        title="test title",
+                        description="test_description",
+                        download_link="test_download_link",
+                        published_date=datetime(year=2000, month=1, day=1),
+                    ),
+                    EpisodeAssets(
+                        title="second_test_title",
+                        description="second_test_description",
+                        download_link="second_test_download_link",
+                        published_date=datetime(year=2000, month=1, day=2),
+                    ),
+                ],
+                cover_art_url="Fake cover url",
+            ),
         }
     )
 

@@ -1,12 +1,17 @@
 {% for episode in  episodes %}
 <div class="episode-container">
-    <h2> {{ episode.assets.title }}</h2>
-    <div class="episode-description">
-    {% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}
+    <div class="thumbnail-container">
+        <img class="episode-thumbnail" src="{{ episode.cover_art_url }}">
     </div>
-    <form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
-        <button type="submit" value="{{ episode.id }}" class="play-button"  name="episode_id">&#9654;</button>
-    </form>
+    <div class="episode-data">
+        <h2> {{ episode.assets.title }}</h2>
+        <div class="episode-description">
+        {% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}
+        </div>
+        <form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
+            <button type="submit" value="{{ episode.id }}" class="play-button"  name="episode_id">&#9654;</button>
+        </form>
+    </div>
 </div>
 <hr>
 {% endfor %}

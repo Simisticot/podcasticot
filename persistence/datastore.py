@@ -33,7 +33,10 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS user (id TEXT NOT NULL PRIMARY KEY, email TEXT UNIQUE );"
         )
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, feed_url TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), UNIQUE(user_id, feed_url), FOREIGN KEY (user_id) REFERENCES user(id));"
+            "CREATE TABLE IF NOT EXISTS subscription (user_id TEXT NOT NULL, feed_id TEXT NOT NULL, PRIMARY KEY (user_id, feed_id), FOREIGN KEY (user_id) REFERENCES user(id), FOREIGN KEY (feed_id) REFERENCES podcast_feed(id));"
+        )
+        cursor.execute(
+            "CREATE TABLE IF NOT EXISTS podcast_feed (id TEXT NOT NULL PRIMARY KEY, feed_url TEXT NOT NULL, cover_art_url TEXT);"
         )
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
@@ -64,13 +67,13 @@ class Datastore:
             raise UnknownUser
         return User(id=result[0], email=result[1])
 
-    def subscribe(self, user_id: str, feed_id: str, feed_url: str) -> None:
+    def subscribe(self, user_id: str, feed_id: str) -> None:
         connection = self._get_connection()
         cursor = connection.cursor()
         try:
             cursor.execute(
-                "INSERT INTO subscription (user_id, feed_id, feed_url) VALUES (?,?,?);",
-                (user_id, feed_id, feed_url),
+                "INSERT INTO subscription (user_id, feed_id) VALUES (?,?);",
+                (user_id, feed_id),
             )
         except sqlite3.IntegrityError:
             raise SubscriptionAlreadyExists
@@ -85,7 +88,22 @@ class Datastore:
         result = cursor.fetchall()
         return [Subscription(user_id=user_id, feed_id=row[0]) for row in result]
 
-    def save_feed(self, feed_id: str, episodes: list[EpisodeAssets]) -> str:
+    def save_podcast_feed(
+        self, feed_id: str, feed_url: str, cover_art_url: str
+    ) -> None:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "insert into podcast_feed (id, feed_url, cover_art_url) values (?,?,?);",
+            (
+                feed_id,
+                feed_url,
+                cover_art_url,
+            ),
+        )
+        connection.commit()
+
+    def save_episodes(self, feed_id: str, episodes: list[EpisodeAssets]) -> str:
         connection = self._get_connection()
         cursor = connection.cursor()
         episodes_data = [
@@ -110,7 +128,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
+            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, podcast_feed.cover_art_url FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
             (user_id,),
         )
         result = cursor.fetchall()
@@ -123,6 +141,7 @@ class Datastore:
                     download_link=row[3],
                     published_date=datetime.fromtimestamp(row[4]),
                 ),
+                cover_art_url=row[5]
             )
             for row in result
         ]
@@ -132,7 +151,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select title, description, download_link, published_date from episode where episode_id = ?;",
+            "select title, description, download_link, published_date, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id where episode_id = ?;",
             (episode_id,),
         )
         result = cursor.fetchone()
@@ -145,7 +164,7 @@ class Datastore:
             download_link=result[2],
             published_date=datetime.fromtimestamp(result[3]),
         )
-        return Episode(id=episode_id, assets=assets)
+        return Episode(id=episode_id, assets=assets, cover_art_url=result[4])
 
     def set_current_time(
         self, episode_id: str, user_id: str, seconds: int, time: datetime
@@ -180,7 +199,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, previous_listen.seconds, previous_listen.time from previous_listen join episode on previous_listen.episode_id = episode.episode_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
+            "select episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, previous_listen.seconds, previous_listen.time, podcast_feed.cover_art_url from previous_listen join episode on previous_listen.episode_id = episode.episode_id join podcast_feed on podcast_feed.id = episode.feed_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
             (user_id,),
         )
         result = cursor.fetchone()
@@ -196,6 +215,7 @@ class Datastore:
                     download_link=result[3],
                     published_date=datetime.fromtimestamp(result[4]),
                 ),
+                cover_art_url=result[7],
             ),
             previous_listen=PreviousListen(
                 time_listened=timedelta(seconds=result[5]),
@@ -208,26 +228,26 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select feed_id, feed_url from subscription where user_id = ?;",
+            "select podcast_feed.id, podcast_feed.feed_url, podcast_feed.cover_art_url from subscription join podcast_feed on subscription.feed_id = podcast_feed.id where user_id = ?;",
             (user_id,),
         )
         result = cursor.fetchall()
-        feeds = [Feed(id=row[0], url=row[1]) for row in result]
+        feeds = [Feed(id=row[0], url=row[1], cover_art_url=row[2]) for row in result]
         return feeds
 
     def get_all_feeds(self) -> list[Feed]:
         connection = self._get_connection()
         cursor = connection.cursor()
-        cursor.execute("select feed_id, feed_url from subscription")
+        cursor.execute("select id, feed_url, cover_art_url from podcast_feed; ")
         result = cursor.fetchall()
-        feeds = [Feed(id=row[0], url=row[1]) for row in result]
+        feeds = [Feed(id=row[0], url=row[1], cover_art_url=row[2]) for row in result]
         return feeds
 
     def get_latest_episode(self, feed_id: str) -> Episode:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select episode_id, title, description ,download_link, published_date from episode where feed_id = ? order by published_date desc limit 1;",
+            "select episode_id, title, description ,download_link, published_date, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
             (feed_id,),
         )
         result = cursor.fetchone()
@@ -241,5 +261,6 @@ class Datastore:
                 download_link=result[3],
                 published_date=datetime.fromtimestamp(result[4]),
             ),
+            cover_art_url=result[5],
         )
         return episode
