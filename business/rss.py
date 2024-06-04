@@ -4,7 +4,7 @@ from typing import Protocol
 
 import feedparser
 
-from business.podcast import EpisodeAssets
+from business.podcast import EpisodeAssets, NoAudio
 
 
 @dataclass
@@ -22,8 +22,16 @@ class RssParser(Protocol):
 class FeedParserRssParser(RssParser):
     def import_feed(self, feed_url: str) -> PodcastImport:
         feed = feedparser.parse(feed_url)
-        assets = [EpisodeAssets.from_feed_entry(entry) for entry in feed["entries"]]
-        return PodcastImport(cover_art_url=feed.feed.image["href"], episode_assets=assets)
+        assets: list[EpisodeAssets] = []
+        for entry in feed["entries"]:
+            try:
+                assets.append(EpisodeAssets.from_feed_entry(entry))
+            except NoAudio:
+                continue
+
+        return PodcastImport(
+            cover_art_url=feed.feed.image["href"], episode_assets=assets
+        )
 
 
 @dataclass

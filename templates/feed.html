@@ -5,6 +5,7 @@
     </div>
     <div class="episode-data">
         <h2> {{ episode.assets.title }}</h2>
+        <div class="episode-duration">{{ episode.assets.length }}</div>
         <div class="episode-description">
         {% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}
         </div>

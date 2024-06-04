@@ -6,24 +6,33 @@ from time import mktime
 from typing import Optional
 
 
+class NoAudio(Exception): ...
+
+
 @dataclass
 class EpisodeAssets:
     title: str
     description: Optional[str]
     download_link: Optional[str]
     published_date: datetime
+    length: timedelta
 
     @staticmethod
     def from_feed_entry(entry: dict) -> EpisodeAssets:
-        download_link = next(
-            (link["href"] for link in entry["links"] if link["type"] == "audio/mpeg"),
+        audio_file = next(
+            (link for link in entry["links"] if link["type"] == "audio/mpeg"),
             None,
         )
+        if audio_file is None:
+            raise NoAudio
+        download_link = audio_file["href"]
+        length = int(audio_file["length"])
         return EpisodeAssets(
             title=entry["title"],
             description=entry.get("summary", None),
             download_link=download_link,
             published_date=datetime.fromtimestamp(mktime(entry["published_parsed"])),
+            length=timedelta(seconds=length),
         )
 
 

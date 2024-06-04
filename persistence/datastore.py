@@ -39,7 +39,7 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS podcast_feed (id TEXT NOT NULL PRIMARY KEY, feed_url TEXT NOT NULL, cover_art_url TEXT);"
         )
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
+            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, length INTEGER NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
         )
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS previous_listen (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, time INT, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
@@ -114,11 +114,12 @@ class Datastore:
                 ep.download_link,
                 ep.published_date.timestamp(),
                 feed_id,
+                ep.length.seconds,
             )
             for ep in episodes
         ]
         cursor.executemany(
-            "INSERT INTO episode (episode_id, title, description, download_link, published_date, feed_id) values (?,?,?,?,?,?)",
+            "INSERT INTO episode (episode_id, title, description, download_link, published_date, feed_id, length) values (?,?,?,?,?,?,?)",
             episodes_data,
         )
         connection.commit()
@@ -128,7 +129,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, podcast_feed.cover_art_url FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
+            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
             (user_id,),
         )
         result = cursor.fetchall()
@@ -140,8 +141,9 @@ class Datastore:
                     description=row[2],
                     download_link=row[3],
                     published_date=datetime.fromtimestamp(row[4]),
+                    length=timedelta(seconds=row[5]),
                 ),
-                cover_art_url=row[5]
+                cover_art_url=row[6],
             )
             for row in result
         ]
@@ -151,7 +153,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select title, description, download_link, published_date, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id where episode_id = ?;",
+            "select title, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id where episode_id = ?;",
             (episode_id,),
         )
         result = cursor.fetchone()
@@ -163,8 +165,9 @@ class Datastore:
             description=result[1],
             download_link=result[2],
             published_date=datetime.fromtimestamp(result[3]),
+            length=timedelta(seconds=result[4]),
         )
-        return Episode(id=episode_id, assets=assets, cover_art_url=result[4])
+        return Episode(id=episode_id, assets=assets, cover_art_url=result[5])
 
     def set_current_time(
         self, episode_id: str, user_id: str, seconds: int, time: datetime
@@ -199,7 +202,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, previous_listen.seconds, previous_listen.time, podcast_feed.cover_art_url from previous_listen join episode on previous_listen.episode_id = episode.episode_id join podcast_feed on podcast_feed.id = episode.feed_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
+            "select episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, previous_listen.seconds, previous_listen.time, podcast_feed.cover_art_url from previous_listen join episode on previous_listen.episode_id = episode.episode_id join podcast_feed on podcast_feed.id = episode.feed_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
             (user_id,),
         )
         result = cursor.fetchone()
@@ -214,12 +217,13 @@ class Datastore:
                     description=result[2],
                     download_link=result[3],
                     published_date=datetime.fromtimestamp(result[4]),
+                    length=timedelta(seconds=result[5]),
                 ),
-                cover_art_url=result[7],
+                cover_art_url=result[8],
             ),
             previous_listen=PreviousListen(
-                time_listened=timedelta(seconds=result[5]),
-                time=datetime.fromtimestamp(result[6]),
+                time_listened=timedelta(seconds=result[6]),
+                time=datetime.fromtimestamp(result[7]),
             ),
         )
         return play_info
@@ -247,7 +251,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select episode_id, title, description ,download_link, published_date, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
+            "select episode_id, title, description ,download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
             (feed_id,),
         )
         result = cursor.fetchone()
@@ -260,7 +264,8 @@ class Datastore:
                 description=result[2],
                 download_link=result[3],
                 published_date=datetime.fromtimestamp(result[4]),
+                length=timedelta(seconds=result[5]),
             ),
-            cover_art_url=result[5],
+            cover_art_url=result[6],
         )
         return episode
