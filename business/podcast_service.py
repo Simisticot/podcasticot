@@ -21,7 +21,7 @@ class PodcastService:
         user_id = str(uuid4())
         return self.datastore.save_user(id=user_id, email=user_email)
 
-    def get_user_home_feed(self, user_id: str) -> list[Episode]:
+    def get_user_home_feed(self, user_id: str) -> list[PlayInfo]:
         return self.datastore.get_user_home_feed(user_id)
 
     def subscribe_user_to_podcast(self, user_id: str, feed_url: str) -> None:

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import uuid4
 
+
 from business.entities import Subscription, User
 from business.podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
 
@@ -125,28 +126,39 @@ class Datastore:
         connection.commit()
         return feed_id
 
-    def get_user_home_feed(self, user_id: str) -> list[Episode]:
+    def get_user_home_feed(self, user_id: str) -> list[PlayInfo]:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
-            (user_id,),
+            "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT 10;",
+            (user_id, user_id),
         )
         result = cursor.fetchall()
-        episodes = [
-            Episode(
-                id=row[0],
-                assets=EpisodeAssets(
-                    title=row[1],
-                    description=row[2],
-                    download_link=row[3],
-                    published_date=datetime.fromtimestamp(row[4]),
-                    length=timedelta(seconds=row[5]),
-                ),
-                cover_art_url=row[6],
+        episodes: list[PlayInfo] = []
+        for row in result:
+            if row[7] is None or row[8] is None:
+                previous_listen = None
+            else:
+                previous_listen = PreviousListen(
+                    time_listened=timedelta(seconds=row[7]),
+                    time=datetime.fromtimestamp(row[8]),
+                )
+            episodes.append(
+                PlayInfo(
+                    previous_listen=previous_listen,
+                    episode=Episode(
+                        id=row[0],
+                        assets=EpisodeAssets(
+                            title=row[1],
+                            description=row[2],
+                            download_link=row[3],
+                            published_date=datetime.fromtimestamp(row[4]),
+                            length=timedelta(seconds=row[5]),
+                        ),
+                        cover_art_url=row[6],
+                    ),
+                )
             )
-            for row in result
-        ]
         return episodes
 
     def get_episode(self, episode_id: str) -> Episode:

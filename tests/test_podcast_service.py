@@ -69,9 +69,9 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
 
     alices_feed = service.get_user_home_feed(user_id=alice.id)
     assert len(alices_feed) == 1
-    episode = alices_feed[0]
-    assert episode.assets.title == "test title"
-    assert isinstance(episode.assets.published_date, datetime)
+    play_info = alices_feed[0]
+    assert play_info.episode.assets.title == "test title"
+    assert isinstance(play_info.episode.assets.published_date, datetime)
 
 
 def test_update_single_users_feed(
@@ -200,29 +200,31 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
     alice = service.save_user("alice@example.com")
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     alices_feed = service.get_user_home_feed(alice.id)
-    episode = alices_feed[0]
+    play_info = alices_feed[0]
     service.update_current_play_time(
-        user_id=alice.id, episode_id=episode.id, seconds=30
+        user_id=alice.id, episode_id=play_info.episode.id, seconds=30
     )
-    play_info = service.get_play_information(user_id=alice.id, episode_id=episode.id)
+    play_info = service.get_play_information(
+        user_id=alice.id, episode_id=play_info.episode.id
+    )
     assert play_info.previous_listen is not None
     assert play_info.previous_listen.time_listened == timedelta(seconds=30)
 
     latest_listen_play_info = service.get_latest_listen_play_info(user_id=alice.id)
     assert latest_listen_play_info == play_info
 
-    other_episode = alices_feed[1]
+    other_play_info = alices_feed[1]
     service.update_current_play_time(
-        user_id=alice.id, episode_id=other_episode.id, seconds=3661
+        user_id=alice.id, episode_id=other_play_info.episode.id, seconds=3661
     )
 
     new_latest_listen_play_info = service.get_latest_listen_play_info(user_id=alice.id)
     assert new_latest_listen_play_info is not None
     assert new_latest_listen_play_info != latest_listen_play_info
-    assert new_latest_listen_play_info.episode.id == other_episode.id
+    assert new_latest_listen_play_info.episode.id == other_play_info.episode.id
 
     service.update_current_play_time(
-        user_id=alice.id, episode_id=episode.id, seconds=60
+        user_id=alice.id, episode_id=play_info.episode.id, seconds=60
     )
 
     newer_latest_listen_play_info = service.get_latest_listen_play_info(
@@ -231,7 +233,7 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
 
     assert newer_latest_listen_play_info is not None
     assert newer_latest_listen_play_info != new_latest_listen_play_info
-    assert newer_latest_listen_play_info.episode.id == episode.id
+    assert newer_latest_listen_play_info.episode.id == play_info.episode.id
 
 
 def test_play_time_string() -> None:

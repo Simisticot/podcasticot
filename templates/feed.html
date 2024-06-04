@@ -1,16 +1,17 @@
-{% for episode in  episodes %}
+{% for play_info in  episodes %}
 <div class="episode-container">
     <div class="thumbnail-container">
-        <img class="episode-thumbnail" src="{{ episode.cover_art_url }}">
+        <img class="episode-thumbnail" src="{{ play_info.episode.cover_art_url }}">
     </div>
     <div class="episode-data">
-        <h2> {{ episode.assets.title }}</h2>
-        <div class="episode-duration">{{ episode.assets.length }}</div>
+        <h2> {{ play_info.episode.assets.title }}</h2>
+        <div class="episod-time-listed">{{ play_info.previous_listen.time_listened }}</div>
+        <div class="episode-duration">{{ play_info.episode.assets.length }}</div>
         <div class="episode-description">
-        {% if episode.assets.description %} {{ episode.assets.description | safe }} {% else %} No description available {% endif %}
+        {% if play_info.episode.assets.description %} {{ play_info.episode.assets.description | safe }} {% else %} No description available {% endif %}
         </div>
         <form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
-            <button type="submit" value="{{ episode.id }}" class="play-button"  name="episode_id">&#9654;</button>
+            <button type="submit" value="{{ play_info.episode.id }}" class="play-button"  name="episode_id">&#9654;</button>
         </form>
     </div>
 </div>
