@@ -4,23 +4,23 @@ from urllib.parse import quote_plus, urlencode
 from authlib.integrations.flask_client import OAuth
 from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-from persistence.datastore import (
-    Datastore,
-    EpisodeNotFound,
-    SubscriptionAlreadyExists,
-    UnknownUser,
-)
 from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
+from persistence.datastore import (Datastore, EpisodeNotFound,
+                                   SubscriptionAlreadyExists, UnknownUser)
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
     load_dotenv(ENV_FILE)
 
+
 app = Flask(__name__)
 app.secret_key = env.get("APP_SECRET_KEY")
 
+if env.get("BEHIND_PROXY") == "yes":
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_host=1, x_proto=1)
 
 oauth = OAuth(app)
 
