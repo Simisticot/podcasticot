@@ -5,8 +5,7 @@
     </div>
     <div class="episode-data">
         <h2> {{ play_info.episode.assets.title }}</h2>
-        <div class="episod-time-listed">{{ play_info.previous_listen.time_listened }}</div>
-        <div class="episode-duration">{{ play_info.episode.assets.length }}</div>
+        <div class="episod-time-listened">{{ play_info.previous_listen.time_listened }}</div>
         <div class="episode-description">
         {% if play_info.episode.assets.description %} {{ play_info.episode.assets.description | safe }} {% else %} No description available {% endif %}
         </div>
