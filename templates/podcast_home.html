@@ -22,8 +22,10 @@
                 <h1>Subscribe</h1>
                 <form hx-post="/subscribe-to-feed" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
                     <label for="#new-feed">Subscribe to a new feed</label>
-                    <input type="text" id="#new-feed"  name="feed">
-                    <button type="submit">Subscribe</button>
+                    <div id="sub-form-input-plus-button">
+                        <input type="text" id="#new-feed"  name="feed">
+                        <button type="submit">Subscribe</button>
+                    </div>
                 </form>
             </div>
             <div>

@@ -34,6 +34,14 @@ h2{
     height: 100px;
     justify-content: space-between;
 }
+#sub-form-input-plus-button{
+    display: flex;
+    flex-direction: row;
+}
+
+#sub-form-input-plus-button button{
+    margin: 0 20px;
+}
 
 button {
     color: #fff;
@@ -56,8 +64,9 @@ button:hover{
 }
 
 .episode-description{
-    max-height: 80px;
+    max-height: 150px;
     overflow: hidden;
+    column-width: 100vw;
 }
 
 .play-button{
@@ -84,3 +93,8 @@ button:hover{
     justify-content: flex-start;
 }
 
+@media(max-width: 992px){
+    #form-plus-timeline{
+        width: 95%
+    }
+}
