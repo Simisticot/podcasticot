@@ -3,17 +3,17 @@ from typing import Callable, Optional
 
 import pytest
 
-from persistence.datastore import Datastore, UnknownUser
 from business.podcast import EpisodeAssets, PreviousListen
 from business.podcast_service import PodcastService
 from business.rss import FakeRssParser, PodcastImport
+from persistence.datastore import Datastore, UnknownUser
 
 
 class EpisodeAssetFactory:
     @classmethod
     def build(cls, published_date: Optional[datetime] = None) -> EpisodeAssets:
         if published_date is None:
-            published_date = datetime.now()
+            published_date = datetime(day=1, month=1, year=2025, hour=12)
         return EpisodeAssets(
             title="test title",
             description="test_description",
@@ -54,6 +54,39 @@ def test_find_user_fails_for_nonexistent_user(service: PodcastService) -> None:
         service.find_user_by_email("alice@example.com")
 
 
+def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeAssetFactory.build(published_date=date)
+                    for date in [
+                        datetime(day=day, month=1, year=2025) for day in range(1, 21)
+                    ]
+                ],
+                cover_art_url="fake cover url",
+            )
+        }
+    )
+
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+
+    page_one = service.get_user_home_feed(user_id=alice.id, page=1)
+    page_two = service.get_user_home_feed(user_id=alice.id, page=2)
+
+    assert len(page_one) == 10
+    for entry in page_one:
+        day = entry.episode.assets.published_date.day
+        assert day <= 20
+        assert day > 10
+    assert len(page_two) == 10
+    for entry in page_two:
+        day = entry.episode.assets.published_date.day
+        assert day <= 10
+        assert day > 0
+
+
 def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -67,7 +100,7 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
     alice = service.save_user("alice@example.com")
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
-    alices_feed = service.get_user_home_feed(user_id=alice.id)
+    alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
     assert len(alices_feed) == 1
     play_info = alices_feed[0]
     assert play_info.episode.assets.title == "test title"
@@ -104,8 +137,8 @@ def test_update_single_users_feed(
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
 
-    alices_feed = service.get_user_home_feed(user_id=alice.id)
-    bobs_feed = service.get_user_home_feed(user_id=bob.id)
+    alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+    bobs_feed = service.get_user_home_feed(user_id=bob.id, page=1)
 
     assert len(alices_feed) == 1
     assert len(bobs_feed) == 1
@@ -121,8 +154,8 @@ def test_update_single_users_feed(
 
     service.update_user_feeds(user_id=bob.id)
 
-    alices_new_feed = service.get_user_home_feed(user_id=alice.id)
-    bobs_new_feed = service.get_user_home_feed(user_id=bob.id)
+    alices_new_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+    bobs_new_feed = service.get_user_home_feed(user_id=bob.id, page=1)
 
     assert len(alices_new_feed) == 1
     assert len(bobs_new_feed) == 2
@@ -156,8 +189,8 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
 
-    alices_feed = service.get_user_home_feed(user_id=alice.id)
-    bobs_feed = service.get_user_home_feed(user_id=bob.id)
+    alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+    bobs_feed = service.get_user_home_feed(user_id=bob.id, page=1)
 
     assert len(alices_feed) == 1
     assert len(bobs_feed) == 1
@@ -173,8 +206,8 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
 
     service.update_all_feeds()
 
-    alices_new_feed = service.get_user_home_feed(user_id=alice.id)
-    bobs_new_feed = service.get_user_home_feed(user_id=bob.id)
+    alices_new_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+    bobs_new_feed = service.get_user_home_feed(user_id=bob.id, page=1)
 
     assert len(alices_new_feed) == 2
     assert len(bobs_new_feed) == 2
@@ -199,7 +232,7 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
 
     alice = service.save_user("alice@example.com")
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
-    alices_feed = service.get_user_home_feed(alice.id)
+    alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
     play_info = alices_feed[0]
     service.update_current_play_time(
         user_id=alice.id, episode_id=play_info.episode.id, seconds=30

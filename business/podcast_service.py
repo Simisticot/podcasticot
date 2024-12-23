@@ -3,10 +3,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from persistence.datastore import Datastore
 from business.entities import User
 from business.podcast import Episode, Feed, PlayInfo
 from business.rss import RssParser
+from persistence.datastore import Datastore
 
 
 @dataclass
@@ -21,8 +21,10 @@ class PodcastService:
         user_id = str(uuid4())
         return self.datastore.save_user(id=user_id, email=user_email)
 
-    def get_user_home_feed(self, user_id: str) -> list[PlayInfo]:
-        return self.datastore.get_user_home_feed(user_id)
+    def get_user_home_feed(self, user_id: str, page: int) -> list[PlayInfo]:
+        return self.datastore.get_user_home_feed(
+            user_id=user_id, number_of_episodes=10, page=page
+        )
 
     def subscribe_user_to_podcast(self, user_id: str, feed_url: str) -> None:
         podcast = self.rss_parser.import_feed(feed_url)

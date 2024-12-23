@@ -8,8 +8,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
-from persistence.datastore import (Datastore, EpisodeNotFound,
-                                   SubscriptionAlreadyExists, UnknownUser)
+from persistence.datastore import (
+    Datastore,
+    EpisodeNotFound,
+    SubscriptionAlreadyExists,
+    UnknownUser,
+)
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -61,16 +65,18 @@ def podhome():
         db_user = podcast_service.find_user_by_email(user_email=user_email)
     except UnknownUser:
         db_user = podcast_service.save_user(user_email=user_email)
+    page = request.args.get("page", type=int, default=1)
     play_info = podcast_service.get_latest_listen_play_info(user_id=db_user.id)
     return render_template(
         template_name_or_list="podcast_home.html",
-        episodes=podcast_service.get_user_home_feed(user_id=db_user.id),
+        episodes=podcast_service.get_user_home_feed(user_id=db_user.id, page=page),
         play_info=play_info,
         play_time_string=(
             play_info.previous_listen.play_time_string()
             if play_info is not None and play_info.previous_listen is not None
             else ""
         ),
+        page=page,
     )
 
 
@@ -92,7 +98,7 @@ def subscribe_to_feed():
         return "You are already subscribed to this feed", 409
     return render_template(
         template_name_or_list="feed.html",
-        episodes=podcast_service.get_user_home_feed(user_id=db_user.id),
+        episodes=podcast_service.get_user_home_feed(user_id=db_user.id, page=1),
     )
 
 
@@ -114,7 +120,7 @@ def refresh():
     podcast_service.update_user_feeds(user_id=db_user.id)
     return render_template(
         template_name_or_list="feed.html",
-        episodes=podcast_service.get_user_home_feed(user_id=db_user.id),
+        episodes=podcast_service.get_user_home_feed(user_id=db_user.id, page=1),
     )
 
 
