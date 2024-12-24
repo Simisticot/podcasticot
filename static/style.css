@@ -8,7 +8,7 @@ h2{
 
 #player-container{
     position: fixed;
-    top:0;
+    bottom:0;
     left:0;
     justify-content: space-around;
     display: flex;
@@ -22,10 +22,6 @@ h2{
 #player-control{
     width:100%;
     zoom: 150%;
-}
-
-#ui{
-    margin-top: 100px;
 }
 
 #subscription-form form{
@@ -100,8 +96,5 @@ button:hover{
     }
     #player-control{
         zoom: 400%;
-    }
-    #ui{
-        margin-top: 200px;
     }
 }
