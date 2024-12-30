@@ -6,6 +6,10 @@ h2{
     margin: 0;
 }
 
+#ui{
+    margin-bottom: 200px;
+}
+
 #player-container{
     position: fixed;
     bottom:0;
