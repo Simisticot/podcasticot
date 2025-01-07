@@ -28,10 +28,11 @@
                     </div>
                 </form>
             </div>
-            <div>
-                        <button id="refresh" hx-trigger="click" hx-post="/refresh" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
+            <div class="refresh-container">
+                        <button id="refresh" hx-indicator="#refresh-spinner" hx-trigger="click" hx-post="/refresh" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
                             Refresh feed
                         </button>
+                        <img id="refresh-spinner" src="/static/spinner.svg">
             </div>
             <div id="user-feeds-timeline">{% include "feed.html" %}</div>
                     <div id="next-page"><a href="/podhome?page={{page + 1}}">Next page</a></div>

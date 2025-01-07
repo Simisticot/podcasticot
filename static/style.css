@@ -94,6 +94,24 @@ button:hover{
     justify-content: flex-start;
 }
 
+.refresh-container{
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+#refresh {
+    margin: 0 20px;
+}
+
+#refresh-spinner{
+    display: none;
+}
+
+#refresh-spinner.htmx-request{
+    display: unset;
+}
+
 @media(max-width: 992px){
     #form-plus-timeline{
         width: 95%
