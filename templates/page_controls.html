@@ -1,0 +1,13 @@
+<div id="page-controls">
+    {% if page > 1 %}
+    <button hx-trigger="click" hx-get="/feed?page={{page-1}}" hx-target="#user-feeds-timeline" hx-swap="innerHTML show:top" hx-replace-url="/podhome?page={{page-1}}">
+        Previous page
+    </button>
+    <button hx-trigger="click" hx-get="/feed" hx-target="#user-feeds-timeline" hx-swap="innerHTML show:top" hx-replace-url="/podhome">
+        Home
+    </button>
+    {% endif %}
+    <button hx-trigger="click" hx-get="/feed?page={{page+1}}" hx-target="#user-feeds-timeline" hx-swap="innerHTML show:top" hx-replace-url="/podhome?page={{page+1}}">
+        Next page
+    </button>
+</div>

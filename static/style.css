@@ -98,6 +98,7 @@ button:hover{
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-content: center;
 }
 
 #refresh {
@@ -110,6 +111,12 @@ button:hover{
 
 #refresh-spinner.htmx-request{
     display: unset;
+}
+
+#page-controls{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-evenly;
 }
 
 @media(max-width: 992px){
