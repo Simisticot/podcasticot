@@ -2,7 +2,7 @@ services:
   podcasticot:
     build: .
     ports:
-      - "8700:8700"
+      - "127.0.0.1:8700:8700"
     volumes:
       - type: bind
         source: ./db
