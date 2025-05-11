@@ -4,7 +4,8 @@ from typing import Optional
 from uuid import uuid4
 
 from business.entities import Subscription, User
-from business.podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
+from business.podcast import (Episode, EpisodeAssets, Feed, PlayInfo,
+                              PreviousListen)
 
 
 class UserAlreadyExists(Exception): ...
@@ -282,3 +283,20 @@ class Datastore:
             cover_art_url=result[6],
         )
         return episode
+
+    def update_links(self, updated_assets: list[EpisodeAssets], feed_id: str) -> None:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        updates = [
+            (
+                asset.download_link,
+                asset.title,
+                feed_id,
+            )
+            for asset in updated_assets
+        ]
+        cursor.executemany(
+            "update episode set download_link = ? where title = ? and feed_id = ?;",
+            updates,
+        )
+        connection.commit()

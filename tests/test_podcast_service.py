@@ -11,13 +11,22 @@ from persistence.datastore import Datastore, UnknownUser
 
 class EpisodeAssetFactory:
     @classmethod
-    def build(cls, published_date: Optional[datetime] = None) -> EpisodeAssets:
+    def build(
+        cls,
+        title: Optional[str] = None,
+        published_date: Optional[datetime] = None,
+        download_link: Optional[str] = None,
+    ) -> EpisodeAssets:
         if published_date is None:
             published_date = datetime(day=1, month=1, year=2025, hour=12)
+        if download_link is None:
+            download_link = "test_download_link"
+        if title is None:
+            title = "test title"
         return EpisodeAssets(
-            title="test title",
+            title=title,
             description="test_description",
-            download_link="test_download_link",
+            download_link=download_link,
             published_date=published_date,
             length=timedelta(hours=2),
         )
@@ -274,3 +283,51 @@ def test_play_time_string() -> None:
         time_listened=timedelta(seconds=3661), time=datetime.now()
     )
     assert previous_listen.play_time_string() == "#t=1:01:01"
+
+
+def test_refreshing_updates_download_links(
+    service_factory: Callable[..., PodcastService]
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeAssetFactory.build(
+                        title="this must remain the same",
+                        published_date=datetime(year=2000, month=1, day=1),
+                        download_link="my_first_cool_link",
+                    ),
+                ],
+                cover_art_url="Fake cover url",
+            ),
+        }
+    )
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+
+    alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+
+    assert len(alices_feed) == 1
+    assert alices_feed[0].episode.assets.download_link == "my_first_cool_link"
+
+    # simulating a change in the remote feed
+    service.rss_parser = FakeRssParser(
+        imports={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeAssetFactory.build(
+                        title="this must remain the same",
+                        published_date=datetime(year=2000, month=1, day=1),
+                        download_link="my_second_cool_link",
+                    ),
+                ],
+                cover_art_url="Fake cover url",
+            ),
+        }
+    )
+    service.update_user_feeds(alice.id)
+
+    alices_updated_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+
+    assert len(alices_updated_feed) == 1
+    assert alices_updated_feed[0].episode.assets.download_link == "my_second_cool_link"
