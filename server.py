@@ -6,6 +6,7 @@ from dotenv import find_dotenv, load_dotenv
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from business.podcast import Episode
 from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
 from persistence.datastore import (Datastore, EpisodeNotFound,
@@ -94,6 +95,27 @@ def feed():
         template_name_or_list="feed.html",
         episodes=podcast_service.get_user_home_feed(user_id=db_user.id, page=page),
         page=page,
+    )
+
+
+@app.get("/episode/<episode_id>")
+def view_episode_info(episode_id):
+    session_user = session.get("user")
+    if session_user is None:
+        return redirect(url_for("login"))
+    user_email = session_user["userinfo"]["email"]
+    if user_email is None:
+        return redirect(url_for("login"))
+    podcast_service = PodcastConfiguration().podcast_service
+    try:
+        db_user = podcast_service.find_user_by_email(user_email=user_email)
+    except UnknownUser:
+        db_user = podcast_service.save_user(user_email=user_email)
+    episode: Episode = podcast_service.get_episode(
+        episode_id=episode_id, user_id=db_user.id
+    )
+    return render_template(
+        template_name_or_list="episode_details.html", episode=episode
     )
 
 

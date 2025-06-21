@@ -65,9 +65,12 @@ button:hover{
 }
 
 .episode-description{
-    max-height: 150px;
     overflow: hidden;
     column-width: 100vw;
+}
+
+.episode-container.unexpanded .episode-data .episode-description{
+    max-height: 150px;
 }
 
 .play-button{

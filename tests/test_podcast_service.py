@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
-from typing import Callable, Optional
+from typing import Callable, Optional, assert_never
 
 import pytest
 
 from business.podcast import EpisodeAssets, PreviousListen
 from business.podcast_service import PodcastService
 from business.rss import FakeRssParser, PodcastImport
-from persistence.datastore import Datastore, UnknownUser
+from persistence.datastore import Datastore, EpisodeNotFound, UnknownUser
 
 
 class EpisodeAssetFactory:
@@ -61,6 +61,29 @@ def test_save_and_find_user(service: PodcastService) -> None:
 def test_find_user_fails_for_nonexistent_user(service: PodcastService) -> None:
     with pytest.raises(UnknownUser):
         service.find_user_by_email("alice@example.com")
+
+
+def test_cannot_get_other_users_episode(
+    service_factory: Callable[..., PodcastService]
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[EpisodeAssetFactory.build()],
+                cover_art_url="fake cover url",
+            )
+        }
+    )
+    alice = service.save_user("alice@example.com")
+    bob = service.save_user("bob@example.com")
+
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+
+    feed = service.get_user_home_feed(user_id=alice.id, page=1)
+    assert len(feed) == 1
+
+    with pytest.raises(EpisodeNotFound):
+        service.get_episode(user_id=bob.id, episode_id=feed[0].episode.id)
 
 
 def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) -> None:

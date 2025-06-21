@@ -1,8 +1,8 @@
 <hr>
 {% include "page_controls.html" %}
 <hr>
-{% for play_info in  episodes %}
-<div class="episode-container">
+{% for play_info in episodes %}
+<div class="episode-container unexpanded">
     <div class="thumbnail-container">
         <img class="episode-thumbnail" src="{{ play_info.episode.cover_art_url }}">
     </div>
@@ -10,7 +10,7 @@
         <h2> {{ play_info.episode.assets.title }}</h2>
         <div class="episod-time-listened">{{ play_info.previous_listen.time_listened }}</div>
         <div class="episode-description">
-        {% if play_info.episode.assets.description %} {{ play_info.episode.assets.description | safe }} {% else %} No description available {% endif %}
+            {% if play_info.episode.assets.description %} {{ play_info.episode.assets.description | safe }} {% else %} No description available {% endif %}
         </div>
         <form hx-swap="innerHTML" hx-post="/play-episode" hx-target="#player">
             <button type="submit" value="{{ play_info.episode.id }}" class="play-button"  name="episode_id">&#9654;</button>

@@ -35,12 +35,12 @@ class PodcastService:
         )
         self.datastore.subscribe(user_id=user_id, feed_id=feed_id)
 
-    def get_episode(self, episode_id: str) -> Episode:
-        episode = self.datastore.get_episode(episode_id=episode_id)
+    def get_episode(self, episode_id: str, user_id: str) -> Episode:
+        episode = self.datastore.get_episode(episode_id=episode_id, user_id=user_id)
         return episode
 
     def get_play_information(self, episode_id: str, user_id: str) -> PlayInfo:
-        episode = self.datastore.get_episode(episode_id=episode_id)
+        episode = self.datastore.get_episode(episode_id=episode_id, user_id=user_id)
         previous_listen = self.datastore.get_previous_listen(
             user_id=user_id, episode_id=episode_id
         )

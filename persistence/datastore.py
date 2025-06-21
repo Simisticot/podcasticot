@@ -163,12 +163,15 @@ class Datastore:
             )
         return episodes
 
-    def get_episode(self, episode_id: str) -> Episode:
+    def get_episode(self, episode_id: str, user_id: str) -> Episode:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select title, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id where episode_id = ?;",
-            (episode_id,),
+            "select title, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id join subscription on subscription.feed_id = podcast_feed.id where episode_id = ? and subscription.user_id = ?;",
+            (
+                episode_id,
+                user_id,
+            ),
         )
         result = cursor.fetchone()
         if result is None:
