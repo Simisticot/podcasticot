@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from typing import Callable, Optional, assert_never
+from typing import Callable, Optional
 
 import pytest
 
@@ -16,7 +16,10 @@ class EpisodeAssetFactory:
         title: Optional[str] = None,
         published_date: Optional[datetime] = None,
         download_link: Optional[str] = None,
+        description: Optional[str] = None,
     ) -> EpisodeAssets:
+        if description is None:
+            description = "test_description"
         if published_date is None:
             published_date = datetime(day=1, month=1, year=2025, hour=12)
         if download_link is None:
@@ -25,7 +28,7 @@ class EpisodeAssetFactory:
             title = "test title"
         return EpisodeAssets(
             title=title,
-            description="test_description",
+            description=description,
             download_link=download_link,
             published_date=published_date,
             length=timedelta(hours=2),
@@ -354,3 +357,32 @@ def test_refreshing_updates_download_links(
 
     assert len(alices_updated_feed) == 1
     assert alices_updated_feed[0].episode.assets.download_link == "my_second_cool_link"
+
+
+def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[
+                    EpisodeAssetFactory.build(
+                        title="banana apple",
+                        description="podcast about bananas and apples",
+                    ),
+                    EpisodeAssetFactory.build(
+                        title="strawberry orange",
+                        description="podcast about strawberries and oranges",
+                    ),
+                ],
+                cover_art_url="Fake cover url",
+            ),
+        }
+    )
+
+    alice = service.save_user("alice@example.com")
+
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+
+    feed = service.get_user_home_feed(user_id=alice.id, page=1, search="apple")
+
+    assert len(feed) == 1
+    assert feed[0].episode.assets.description == "podcast about bananas and apples"

@@ -97,7 +97,7 @@ button:hover{
     justify-content: flex-start;
 }
 
-.refresh-container{
+.refresh-container, .search-container{
     display: flex;
     flex-direction: row;
     align-items: center;

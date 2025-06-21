@@ -91,9 +91,12 @@ def feed():
     except UnknownUser:
         db_user = podcast_service.save_user(user_email=user_email)
     page = request.args.get("page", type=int, default=1)
+    search = request.args.get("search", type=str, default=None)
     return render_template(
         template_name_or_list="feed.html",
-        episodes=podcast_service.get_user_home_feed(user_id=db_user.id, page=page),
+        episodes=podcast_service.get_user_home_feed(
+            user_id=db_user.id, page=page, search=search
+        ),
         page=page,
     )
 

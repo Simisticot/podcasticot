@@ -25,6 +25,12 @@
                         </button>
                         <img id="refresh-spinner" src="/static/spinner.svg">
             </div>
+            <div class="search-container">
+                <form hx-get="/feed" hx-target="#user-feeds-timeline" hx-swap="innerHTML">
+                    <input type="text" id="search" name="search">
+                    <button type="submit">Search</button>
+                </form>
+            </div>
             <div id="user-feeds-timeline">{% include "feed.html" %}</div>
             <div id="subscription-form">
                 <h1>Subscribe</h1>
