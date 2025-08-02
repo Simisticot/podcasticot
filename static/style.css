@@ -1,5 +1,11 @@
 body {
     font-size: large;
+    background-color: #1a1a1a;
+    color: #e2e9ff;
+}
+
+a{
+    color: unset;
 }
 
 h2{
@@ -60,8 +66,16 @@ button:hover{
 }
 
 #form-plus-timeline{
-    width: 620px;
+    width: 1200px;
     margin: auto;
+}
+
+#user-feeds-timeline{
+    background-color: blue;
+    padding: 20px;
+    border-radius: 15px;
+    background-color: #292929;
+    border: #404040 solid 2px;
 }
 
 .episode-description{
@@ -92,9 +106,14 @@ button:hover{
 }
 
 .episode-container{
-    display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-start;
+  background-color: #333;
+  padding: 20px;
+  border-radius: 15px;
+  border: #464646 solid 2px;
+  margin: 15px 0;
 }
 
 .refresh-container, .search-container{
