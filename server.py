@@ -226,6 +226,7 @@ def current_time(episode_id: str, seconds: str):
 def callback():
     token = oauth.auth0.authorize_access_token()
     session["user"] = token
+    session.permanent = True
     return redirect("/podhome")
 
 
