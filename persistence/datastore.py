@@ -4,8 +4,7 @@ from typing import Optional
 from uuid import uuid4
 
 from business.entities import Subscription, User
-from business.podcast import (Episode, EpisodeAssets, Feed, PlayInfo,
-                              PreviousListen)
+from business.podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
 
 
 class UserAlreadyExists(Exception): ...
@@ -21,7 +20,6 @@ class UnknownUser(Exception): ...
 
 
 class Datastore:
-
     def __init__(self, db_string: str) -> None:
         self.db_string: str = db_string
         self.connection = sqlite3.connect(self.db_string)
@@ -126,6 +124,50 @@ class Datastore:
         connection.commit()
         return feed_id
 
+    def get_single_feed(
+        self, user_id: str, feed_id: str, number_of_episodes: int, page: int
+    ) -> list[PlayInfo]:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        cursor.execute(
+            "SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND episode.feed_id = ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
+            (
+                user_id,
+                user_id,
+                feed_id,
+                number_of_episodes,
+                number_of_episodes * (page - 1),
+            ),
+        )
+        result = cursor.fetchall()
+        episodes: list[PlayInfo] = []
+        for row in result:
+            if row[7] is None or row[8] is None:
+                previous_listen = None
+            else:
+                previous_listen = PreviousListen(
+                    time_listened=timedelta(seconds=row[8]),
+                    time=datetime.fromtimestamp(row[9]),
+                )
+            episodes.append(
+                PlayInfo(
+                    previous_listen=previous_listen,
+                    episode=Episode(
+                        id=row[0],
+                        feed_id=row[1],
+                        assets=EpisodeAssets(
+                            title=row[2],
+                            description=row[3],
+                            download_link=row[4],
+                            published_date=datetime.fromtimestamp(row[5]),
+                            length=timedelta(seconds=row[6]),
+                        ),
+                        cover_art_url=row[7],
+                    ),
+                )
+            )
+        return episodes
+
     def get_user_home_feed(
         self,
         user_id: str,
@@ -137,13 +179,13 @@ class Datastore:
         cursor = connection.cursor()
         if search is None:
             cursor.execute(
-                "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
+                "SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
                 (user_id, user_id, number_of_episodes, number_of_episodes * (page - 1)),
             )
         else:
             formatted_search = f"%{search}%"
             cursor.execute(
-                "SELECT episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND episode.description LIKE ? OR episode.title LIKE ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
+                "SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND episode.description LIKE ? OR episode.title LIKE ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
                 (
                     user_id,
                     user_id,
@@ -156,26 +198,27 @@ class Datastore:
         result = cursor.fetchall()
         episodes: list[PlayInfo] = []
         for row in result:
-            if row[7] is None or row[8] is None:
+            if row[8] is None or row[9] is None:
                 previous_listen = None
             else:
                 previous_listen = PreviousListen(
-                    time_listened=timedelta(seconds=row[7]),
-                    time=datetime.fromtimestamp(row[8]),
+                    time_listened=timedelta(seconds=row[8]),
+                    time=datetime.fromtimestamp(row[9]),
                 )
             episodes.append(
                 PlayInfo(
                     previous_listen=previous_listen,
                     episode=Episode(
                         id=row[0],
+                        feed_id=row[1],
                         assets=EpisodeAssets(
-                            title=row[1],
-                            description=row[2],
-                            download_link=row[3],
-                            published_date=datetime.fromtimestamp(row[4]),
-                            length=timedelta(seconds=row[5]),
+                            title=row[2],
+                            description=row[3],
+                            download_link=row[4],
+                            published_date=datetime.fromtimestamp(row[5]),
+                            length=timedelta(seconds=row[6]),
                         ),
-                        cover_art_url=row[6],
+                        cover_art_url=row[7],
                     ),
                 )
             )
@@ -185,7 +228,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select title, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id join subscription on subscription.feed_id = podcast_feed.id where episode_id = ? and subscription.user_id = ?;",
+            "select title, episode.feed_id, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id join subscription on subscription.feed_id = podcast_feed.id where episode_id = ? and subscription.user_id = ?;",
             (
                 episode_id,
                 user_id,
@@ -197,12 +240,14 @@ class Datastore:
 
         assets = EpisodeAssets(
             title=result[0],
-            description=result[1],
-            download_link=result[2],
-            published_date=datetime.fromtimestamp(result[3]),
-            length=timedelta(seconds=result[4]),
+            description=result[2],
+            download_link=result[3],
+            published_date=datetime.fromtimestamp(result[4]),
+            length=timedelta(seconds=result[5]),
         )
-        return Episode(id=episode_id, assets=assets, cover_art_url=result[5])
+        return Episode(
+            id=episode_id, feed_id=result[1], assets=assets, cover_art_url=result[6]
+        )
 
     def set_current_time(
         self, episode_id: str, user_id: str, seconds: int, time: datetime
@@ -237,7 +282,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select episode.episode_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, previous_listen.seconds, previous_listen.time, podcast_feed.cover_art_url from previous_listen join episode on previous_listen.episode_id = episode.episode_id join podcast_feed on podcast_feed.id = episode.feed_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
+            "select episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, previous_listen.seconds, previous_listen.time, podcast_feed.cover_art_url from previous_listen join episode on previous_listen.episode_id = episode.episode_id join podcast_feed on podcast_feed.id = episode.feed_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
             (user_id,),
         )
         result = cursor.fetchone()
@@ -247,18 +292,19 @@ class Datastore:
         play_info = PlayInfo(
             episode=Episode(
                 id=result[0],
+                feed_id=result[1],
                 assets=EpisodeAssets(
-                    title=result[1],
-                    description=result[2],
-                    download_link=result[3],
-                    published_date=datetime.fromtimestamp(result[4]),
-                    length=timedelta(seconds=result[5]),
+                    title=result[2],
+                    description=result[3],
+                    download_link=result[4],
+                    published_date=datetime.fromtimestamp(result[5]),
+                    length=timedelta(seconds=result[6]),
                 ),
-                cover_art_url=result[8],
+                cover_art_url=result[9],
             ),
             previous_listen=PreviousListen(
-                time_listened=timedelta(seconds=result[6]),
-                time=datetime.fromtimestamp(result[7]),
+                time_listened=timedelta(seconds=result[7]),
+                time=datetime.fromtimestamp(result[8]),
             ),
         )
         return play_info
@@ -286,7 +332,7 @@ class Datastore:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
-            "select episode_id, title, description ,download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
+            "select episode_id, episode.feed_id, title, description ,download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
             (feed_id,),
         )
         result = cursor.fetchone()
@@ -294,14 +340,15 @@ class Datastore:
             raise EpisodeNotFound
         episode = Episode(
             id=result[0],
+            feed_id=result[1],
             assets=EpisodeAssets(
-                title=result[1],
-                description=result[2],
-                download_link=result[3],
-                published_date=datetime.fromtimestamp(result[4]),
-                length=timedelta(seconds=result[5]),
+                title=result[2],
+                description=result[3],
+                download_link=result[4],
+                published_date=datetime.fromtimestamp(result[5]),
+                length=timedelta(seconds=result[6]),
             ),
-            cover_art_url=result[6],
+            cover_art_url=result[7],
         )
         return episode
 

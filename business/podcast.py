@@ -39,6 +39,7 @@ class EpisodeAssets:
 @dataclass
 class Episode:
     id: str
+    feed_id: str
     assets: EpisodeAssets
     cover_art_url: str
 

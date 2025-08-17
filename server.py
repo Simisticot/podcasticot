@@ -9,8 +9,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from business.podcast import Episode
 from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
-from persistence.datastore import (Datastore, EpisodeNotFound,
-                                   SubscriptionAlreadyExists, UnknownUser)
+from persistence.datastore import (
+    Datastore,
+    EpisodeNotFound,
+    SubscriptionAlreadyExists,
+    UnknownUser,
+)
 
 ENV_FILE = find_dotenv()
 if ENV_FILE:
@@ -32,7 +36,7 @@ oauth.register(
     client_kwargs={
         "scope": "openid profile email",
     },
-    server_metadata_url=f'https://{env.get("AUTH0_DOMAIN")}/.well-known/openid-configuration',
+    server_metadata_url=f"https://{env.get('AUTH0_DOMAIN')}/.well-known/openid-configuration",
 )
 
 
@@ -63,10 +67,17 @@ def podhome():
     except UnknownUser:
         db_user = podcast_service.save_user(user_email=user_email)
     page = request.args.get("page", type=int, default=1)
+    feed_id = request.args.get("feed", type=str, default="")
     play_info = podcast_service.get_latest_listen_play_info(user_id=db_user.id)
+    if not feed_id:
+        episodes = podcast_service.get_user_home_feed(user_id=db_user.id, page=page)
+    else:
+        episodes = podcast_service.get_single_feed(
+            user_id=db_user.id, feed_id=feed_id, page=page
+        )
     return render_template(
         template_name_or_list="podcast_home.html",
-        episodes=podcast_service.get_user_home_feed(user_id=db_user.id, page=page),
+        episodes=episodes,
         play_info=play_info,
         play_time_string=(
             play_info.previous_listen.play_time_string()
@@ -74,6 +85,7 @@ def podhome():
             else ""
         ),
         page=page,
+        feed_id=feed_id,
     )
 
 
@@ -92,12 +104,20 @@ def feed():
         db_user = podcast_service.save_user(user_email=user_email)
     page = request.args.get("page", type=int, default=1)
     search = request.args.get("search", type=str, default=None)
+    feed_id = request.args.get("feed", type=str, default=None)
+    if not feed_id:
+        episodes = podcast_service.get_user_home_feed(
+            user_id=db_user.id, page=page, search=search
+        )
+    else:
+        episodes = podcast_service.get_single_feed(
+            user_id=db_user.id, feed_id=feed_id, page=page
+        )
     return render_template(
         template_name_or_list="feed.html",
-        episodes=podcast_service.get_user_home_feed(
-            user_id=db_user.id, page=page, search=search
-        ),
+        episodes=episodes,
         page=page,
+        feed_id=feed_id,
     )
 
 

@@ -28,6 +28,11 @@ class PodcastService:
             user_id=user_id, number_of_episodes=10, page=page, search=search
         )
 
+    def get_single_feed(self, user_id: str, page: int, feed_id: str) -> list[PlayInfo]:
+        return self.datastore.get_single_feed(
+            user_id=user_id, feed_id=feed_id, number_of_episodes=10, page=page
+        )
+
     def subscribe_user_to_podcast(self, user_id: str, feed_url: str) -> None:
         podcast = self.rss_parser.import_feed(feed_url)
         feed_id = str(uuid4())
