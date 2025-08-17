@@ -4,7 +4,7 @@
 {% for play_info in episodes %}
 <div class="episode-container unexpanded">
     <div class="thumbnail-container">
-        <img class="episode-thumbnail" src="{{ play_info.episode.cover_art_url }}">
+        <img hx-trigger="click" hx-get="/feed?feed={{ play_info.episode.feed_id }}" hx-target="#user-feeds-timeline" hx-swap="innerHTML show:top" class="episode-thumbnail" hx-replace-url="/podhome?feed={{ play_info.episode.feed_id }}" src="{{ play_info.episode.cover_art_url }}">
     </div>
     <div class="episode-data">
         <h2> {{ play_info.episode.assets.title }}</h2>

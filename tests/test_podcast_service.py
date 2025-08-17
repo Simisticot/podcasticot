@@ -67,7 +67,7 @@ def test_find_user_fails_for_nonexistent_user(service: PodcastService) -> None:
 
 
 def test_cannot_get_other_users_episode(
-    service_factory: Callable[..., PodcastService]
+    service_factory: Callable[..., PodcastService],
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -143,7 +143,7 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
 
 
 def test_update_single_users_feed(
-    service_factory: Callable[..., PodcastService]
+    service_factory: Callable[..., PodcastService],
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -312,7 +312,7 @@ def test_play_time_string() -> None:
 
 
 def test_refreshing_updates_download_links(
-    service_factory: Callable[..., PodcastService]
+    service_factory: Callable[..., PodcastService],
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -386,3 +386,36 @@ def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> N
 
     assert len(feed) == 1
     assert feed[0].episode.assets.description == "podcast about bananas and apples"
+
+
+def test_get_single_feed(service_factory: Callable[..., PodcastService]) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[EpisodeAssetFactory.build(title="skibidi")],
+                cover_art_url="fake cover url",
+            ),
+            "this also matters": PodcastImport(
+                episode_assets=[EpisodeAssetFactory.build(title="skibido")],
+                cover_art_url="other fake cover url",
+            ),
+        }
+    )
+
+    alice = service.save_user("alice@example.com")
+
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this also matters")
+
+    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
+
+    assert len(home_feed) == 2
+
+    first_play_info = home_feed[0]
+
+    single_feed = service.get_single_feed(
+        user_id=alice.id, page=0, feed_id=first_play_info.episode.feed_id
+    )
+
+    assert len(single_feed) == 1
+    assert single_feed[0] == first_play_info
