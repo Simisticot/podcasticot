@@ -15,7 +15,6 @@ dependencies = [
 ]
 [dependency-groups]
 dev = [
-    "black==24.4.0",
     "pytest==8.2.0",
-    "isort==5.13.2",
+    "ruff>=0.13.2",
 ]
