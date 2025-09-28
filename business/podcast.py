@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from time import mktime
 from typing import Optional
 
+from pydantic import BaseModel, ConfigDict
+
 
 class NoAudio(Exception): ...
 
@@ -57,10 +59,11 @@ class Feed:
     cover_art_url: str
 
 
-@dataclass
-class PreviousListen:
+class PreviousListen(BaseModel):
     time_listened: timedelta
     time: datetime
 
     def play_time_string(self) -> str:
         return f"#t={str(self.time_listened)}"
+
+    model_config = ConfigDict(ser_json_timedelta="float")
