@@ -1,4 +1,5 @@
 .env
+.podcasticotapi.env
 .pyc
 *.iml
 .directory
