@@ -46,8 +46,7 @@ class Episode:
     cover_art_url: str
 
 
-@dataclass
-class PlayInfo:
+class PlayInfo(BaseModel):
     episode: Episode
     previous_listen: Optional[PreviousListen]
 

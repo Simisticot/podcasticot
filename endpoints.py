@@ -142,3 +142,16 @@ def subscribe(
 ) -> str:
     service.subscribe_user_to_podcast(user.id, feed_url)
     return "Subscribed Successfully"
+
+
+class LatestListen(BaseModel):
+    play_info: PlayInfo | None
+
+
+@app.get("/latest")
+def latest(
+    user: User = Depends(authenticated_user),
+    service: PodcastService = Depends(podcast_service),
+) -> LatestListen:
+    info = service.get_latest_listen_play_info(user.id)
+    return LatestListen(play_info=info)
