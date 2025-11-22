@@ -31,7 +31,7 @@ class EpisodeAssetFactory:
             description=description,
             download_link=download_link,
             published_date=published_date,
-            length=timedelta(hours=2),
+            length=60 * 60 * 2,
         )
 
 

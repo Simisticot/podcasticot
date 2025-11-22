@@ -1,3 +1,4 @@
+import logging
 from functools import lru_cache
 
 import jwt
@@ -13,6 +14,12 @@ from business.podcast import PlayInfo
 from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
 from persistence.datastore import Datastore, EpisodeNotFound, UnknownUser
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class Settings(BaseSettings):
