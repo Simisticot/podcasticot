@@ -1,6 +1,9 @@
+from contextlib import asynccontextmanager
 from functools import lru_cache
+from typing import AsyncGenerator
 
 import jwt
+from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -48,7 +51,24 @@ class UnauthorizedException(HTTPException):
         super().__init__(status.HTTP_403_FORBIDDEN, detail=detail)
 
 
-app = FastAPI()
+scheduler = BackgroundScheduler()
+
+
+def refresh_all_feeds() -> None:
+    podcast_service().update_all_feeds()
+
+
+scheduler.add_job(func=refresh_all_feeds, trigger="interval", minutes=10)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, FastAPI]:
+    scheduler.start()
+    yield
+    scheduler.shutdown()
+
+
+app = FastAPI(lifespan=lifespan)
 origins = ["http://localhost:5173", "https://podcast.simisticot.com"]
 
 app.add_middleware(
