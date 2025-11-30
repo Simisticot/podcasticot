@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
@@ -7,6 +8,8 @@ from business.entities import User
 from business.podcast import Episode, Feed, PlayInfo
 from business.rss import RssParser
 from persistence.datastore import Datastore
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -24,6 +27,7 @@ class PodcastService:
     def get_user_home_feed(
         self, user_id: str, page: int, search: Optional[str] = None
     ) -> list[PlayInfo]:
+        logger.info("fetching home feed")
         return self.datastore.get_user_home_feed(
             user_id=user_id, number_of_episodes=10, page=page, search=search
         )

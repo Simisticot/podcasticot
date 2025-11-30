@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
@@ -113,7 +113,7 @@ class Datastore:
                 ep.download_link,
                 ep.published_date.timestamp(),
                 feed_id,
-                ep.length.seconds,
+                ep.length,
             )
             for ep in episodes
         ]
@@ -146,7 +146,7 @@ class Datastore:
                 previous_listen = None
             else:
                 previous_listen = PreviousListen(
-                    time_listened=timedelta(seconds=row[8]),
+                    time_listened=row[8],
                     time=datetime.fromtimestamp(row[9]),
                 )
             episodes.append(
@@ -160,7 +160,7 @@ class Datastore:
                             description=row[3],
                             download_link=row[4],
                             published_date=datetime.fromtimestamp(row[5]),
-                            length=timedelta(seconds=row[6]),
+                            length=row[6],
                         ),
                         cover_art_url=row[7],
                     ),
@@ -202,7 +202,7 @@ class Datastore:
                 previous_listen = None
             else:
                 previous_listen = PreviousListen(
-                    time_listened=timedelta(seconds=row[8]),
+                    time_listened=row[8],
                     time=datetime.fromtimestamp(row[9]),
                 )
             episodes.append(
@@ -216,7 +216,7 @@ class Datastore:
                             description=row[3],
                             download_link=row[4],
                             published_date=datetime.fromtimestamp(row[5]),
-                            length=timedelta(seconds=row[6]),
+                            length=row[6],
                         ),
                         cover_art_url=row[7],
                     ),
@@ -243,7 +243,7 @@ class Datastore:
             description=result[2],
             download_link=result[3],
             published_date=datetime.fromtimestamp(result[4]),
-            length=timedelta(seconds=result[5]),
+            length=result[5],
         )
         return Episode(
             id=episode_id, feed_id=result[1], assets=assets, cover_art_url=result[6]
@@ -274,7 +274,7 @@ class Datastore:
         if result is None:
             return None
         return PreviousListen(
-            time_listened=timedelta(seconds=result[0]),
+            time_listened=result[0],
             time=datetime.fromtimestamp(result[1]),
         )
 
@@ -298,12 +298,12 @@ class Datastore:
                     description=result[3],
                     download_link=result[4],
                     published_date=datetime.fromtimestamp(result[5]),
-                    length=timedelta(seconds=result[6]),
+                    length=result[6],
                 ),
                 cover_art_url=result[9],
             ),
             previous_listen=PreviousListen(
-                time_listened=timedelta(seconds=result[7]),
+                time_listened=result[7],
                 time=datetime.fromtimestamp(result[8]),
             ),
         )
@@ -346,7 +346,7 @@ class Datastore:
                 description=result[3],
                 download_link=result[4],
                 published_date=datetime.fromtimestamp(result[5]),
-                length=timedelta(seconds=result[6]),
+                length=result[6],
             ),
             cover_art_url=result[7],
         )
