@@ -80,6 +80,7 @@ class PodcastService:
             self.datastore.save_episodes(feed_id=feed.id, episodes=new_episode_assets)
 
             self.datastore.update_links(podcast.episode_assets, feed.id)
+            self.datastore.update_lengths(podcast.episode_assets, feed.id)
 
     def update_all_feeds(self) -> None:
         feeds = self.datastore.get_all_feeds()

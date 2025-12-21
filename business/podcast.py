@@ -28,22 +28,34 @@ class EpisodeAssets:
             (link for link in entry["links"] if link["type"] == "audio/mpeg"),
             None,
         )
-        length = None
-        if itunes_duration := entry.get("itunes:duration", None):
-            values = itunes_duration.split(":")
-            match len(values):
-                case 1:
-                    length = timedelta(seconds=values[0]).seconds
-                case 2:
-                    length = timedelta(seconds=values[1], minutes=values[0]).seconds
-                case 3:
-                    length = timedelta(
-                        seconds=values[2], minutes=values[1], hours=values[0]
-                    ).seconds
-                case _:
-                    logger.info(
-                        f"Unexpected value for itunes duration : {itunes_duration}"
-                    )
+        # comes as <itunes:duration>03:11:22</itunes:duration>
+        # feedparser exposes it as itunes_duration which is a string representing a number of seconds OR a timecode :)
+        if itunes_duration := entry.get("itunes_duration"):
+            if ":" in itunes_duration:
+                values = itunes_duration.split(":")
+                match len(values):
+                    case 1:
+                        length = timedelta(seconds=int(values[0])).seconds
+                    case 2:
+                        length = timedelta(
+                            seconds=int(values[1]), minutes=int(values[0])
+                        ).seconds
+                    case 3:
+                        length = timedelta(
+                            seconds=int(values[2]),
+                            minutes=int(values[1]),
+                            hours=int(values[0]),
+                        ).seconds
+                    case _:
+                        logger.info(
+                            f"Unexpected value for itunes duration : {itunes_duration}"
+                        )
+                        length = None
+            else:
+                length = int(itunes_duration)
+
+        else:
+            length = None
         if audio_file is None:
             raise NoAudio
         return EpisodeAssets(

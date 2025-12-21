@@ -4,6 +4,7 @@ from functools import lru_cache
 from typing import AsyncGenerator
 
 import jwt
+import uvicorn
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -182,3 +183,7 @@ def latest(
 ) -> LatestListen:
     info = service.get_latest_listen_play_info(user.id)
     return LatestListen(play_info=info)
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)

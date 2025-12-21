@@ -38,7 +38,7 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS podcast_feed (id TEXT NOT NULL PRIMARY KEY, feed_url TEXT NOT NULL, cover_art_url TEXT);"
         )
         cursor.execute(
-            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, length INTEGER NOT NULL, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
+            "CREATE TABLE IF NOT EXISTS episode (episode_id TEXT NOT NULL PRIMARY KEY, title TEXT, description TEXT, download_link TEXT, published_date INTEGER NOT NULL, feed_id TEXT NOT NULL, length INTEGER, FOREIGN KEY (feed_id) REFERENCES subscription(feed_id));"
         )
         cursor.execute(
             "CREATE TABLE IF NOT EXISTS previous_listen (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, time INT, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
@@ -351,6 +351,16 @@ class Datastore:
             cover_art_url=result[7],
         )
         return episode
+
+    def update_lengths(self, updated_assets: list[EpisodeAssets], feed_id: str) -> None:
+        connection = self._get_connection()
+        cursor = connection.cursor()
+        updates = [(asset.length, asset.title, feed_id) for asset in updated_assets]
+        cursor.executemany(
+            "update episode set length = ? where title = ? and feed_id = ?;",
+            updates,
+        )
+        connection.commit()
 
     def update_links(self, updated_assets: list[EpisodeAssets], feed_id: str) -> None:
         connection = self._get_connection()
