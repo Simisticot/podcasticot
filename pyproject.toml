@@ -13,8 +13,15 @@ dependencies = [
     "python-dotenv>=0.19.2",
     "requests>=2.27.1",
 ]
+
+[tool.pyrefly]
+project-includes = [
+    "**/*.py*",
+    "**/*.ipynb",
+]
 [dependency-groups]
 dev = [
     "pytest==8.2.0",
     "ruff>=0.13.2",
+    "pyrefly>=0.46.0",
 ]
