@@ -55,7 +55,7 @@ def get_jwks_client(settings=Depends(get_settings)) -> PyJWKClient:
 
 
 class UnauthorizedException(HTTPException):
-    def __init__(self, detail: str):
+    def __init__(self, detail: str) -> None:
         super().__init__(status.HTTP_403_FORBIDDEN, detail=detail)
 
 

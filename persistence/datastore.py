@@ -1,5 +1,6 @@
 import sqlite3
 from datetime import datetime
+from sqlite3 import Connection
 from typing import Optional
 from uuid import uuid4
 
@@ -25,7 +26,7 @@ class Datastore:
         self.connection = sqlite3.connect(self.db_string)
         self._init_database()
 
-    def _init_database(self):
+    def _init_database(self) -> None:
         connection = self._get_connection()
         cursor = connection.cursor()
         cursor.execute(
@@ -44,7 +45,7 @@ class Datastore:
             "CREATE TABLE IF NOT EXISTS previous_listen (episode_id TEXT NOT NULL, user_id TEXT NOT NULL, seconds INT NOT NULL, time INT, PRIMARY KEY (episode_id, user_id), FOREIGN KEY (episode_id) REFERENCES episode(episode_id), FOREIGN KEY (user_id) REFERENCES user(id));"
         )
 
-    def _get_connection(self):
+    def _get_connection(self) -> Connection:
         return self.connection
 
     def save_user(self, id: str, email: str) -> User:
