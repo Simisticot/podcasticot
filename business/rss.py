@@ -35,7 +35,8 @@ class FeedParserRssParser(RssParser):
             logger.info(f"finished loading episode {i} out of {number_of_eps}")
 
         return PodcastImport(
-            cover_art_url=feed.feed.image["href"], episode_assets=assets
+            cover_art_url=feed.feed.image["href"],  # type: ignore
+            episode_assets=assets,
         )
 
 
