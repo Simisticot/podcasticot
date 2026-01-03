@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlite3 import Connection
 from typing import Optional
 from uuid import uuid4
@@ -174,7 +174,8 @@ class Datastore:
         user_id: str,
         number_of_episodes: int,
         page: int,
-        search: Optional[str] = None,
+        search: Optional[str],
+        include_finished: Optional[bool],
     ) -> list[PlayInfo]:
         connection = self._get_connection()
         cursor = connection.cursor()
@@ -223,6 +224,17 @@ class Datastore:
                     ),
                 )
             )
+        if not include_finished:
+            episodes = [
+                ep
+                for ep in episodes
+                if ep.previous_listen is None
+                or (
+                    ep.episode.assets.length is not None
+                    and ep.previous_listen.time_listened
+                    != timedelta(seconds=ep.episode.assets.length)
+                )
+            ]
         return episodes
 
     def get_episode(self, episode_id: str, user_id: str) -> Episode:

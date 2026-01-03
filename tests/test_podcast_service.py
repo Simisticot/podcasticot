@@ -17,6 +17,7 @@ class EpisodeAssetFactory:
         published_date: Optional[datetime] = None,
         download_link: Optional[str] = None,
         description: Optional[str] = None,
+        length: Optional[int] = None,
     ) -> EpisodeAssets:
         if description is None:
             description = "test_description"
@@ -26,12 +27,14 @@ class EpisodeAssetFactory:
             download_link = "test_download_link"
         if title is None:
             title = "test title"
+        if length is None:
+            length = 60 * 60 * 2
         return EpisodeAssets(
             title=title,
             description=description,
             download_link=download_link,
             published_date=published_date,
-            length=60 * 60 * 2,
+            length=length,
         )
 
 
@@ -475,3 +478,29 @@ def test_single_feed_with_listen_info(
     assert len(single_feed) == 1
     assert single_feed[0].previous_listen is not None
     assert single_feed[0].previous_listen.time_listened == timedelta(seconds=10)
+
+
+def test_home_feed_filters_out_fully_listened_episodes(
+    service_factory: Callable[..., PodcastService],
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[EpisodeAssetFactory.build(length=200)],
+                cover_art_url="Fake cover url",
+            )
+        }
+    )
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
+    service.update_current_play_time(
+        # listened to the full 200 seconds
+        episode_id=home_feed[0].episode.id,
+        user_id=alice.id,
+        seconds=200,
+    )
+    refreshed_home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
+
+    # only existing episode is filtered out because finished
+    assert len(refreshed_home_feed) == 0

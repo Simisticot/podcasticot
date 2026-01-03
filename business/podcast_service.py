@@ -25,11 +25,19 @@ class PodcastService:
         return self.datastore.save_user(id=user_id, email=user_email)
 
     def get_user_home_feed(
-        self, user_id: str, page: int, search: Optional[str] = None
+        self,
+        user_id: str,
+        page: int,
+        search: Optional[str] = None,
+        include_finished: Optional[bool] = False,
     ) -> list[PlayInfo]:
         logger.info("fetching home feed")
         return self.datastore.get_user_home_feed(
-            user_id=user_id, number_of_episodes=10, page=page, search=search
+            user_id=user_id,
+            number_of_episodes=10,
+            page=page,
+            search=search,
+            include_finished=include_finished,
         )
 
     def get_single_feed(self, user_id: str, page: int, feed_id: str) -> list[PlayInfo]:
