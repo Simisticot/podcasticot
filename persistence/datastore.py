@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlite3 import Connection
 from typing import Optional
 from uuid import uuid4
@@ -231,8 +231,9 @@ class Datastore:
                 if ep.previous_listen is None
                 or (
                     ep.episode.assets.length is not None
-                    and ep.previous_listen.time_listened
-                    != timedelta(seconds=ep.episode.assets.length)
+                    and ep.episode.assets.length
+                    - ep.previous_listen.time_listened.seconds
+                    >= 20
                 )
             ]
         return episodes

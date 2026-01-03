@@ -504,3 +504,29 @@ def test_home_feed_filters_out_fully_listened_episodes(
 
     # only existing episode is filtered out because finished
     assert len(refreshed_home_feed) == 0
+
+
+def test_home_feed_filters_out_almost_fully_listened_episodes(
+    service_factory: Callable[..., PodcastService],
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                episode_assets=[EpisodeAssetFactory.build(length=200)],
+                cover_art_url="Fake cover url",
+            )
+        }
+    )
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
+    service.update_current_play_time(
+        # listened to the full 200 seconds
+        episode_id=home_feed[0].episode.id,
+        user_id=alice.id,
+        seconds=185,
+    )
+    refreshed_home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
+
+    # only existing episode is filtered out because within 20 seconds of finished
+    assert len(refreshed_home_feed) == 0
