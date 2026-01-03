@@ -72,7 +72,7 @@ def test_cannot_get_other_users_episode(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
-                episode_assets=[EpisodeAssetFactory.build()],
+                episode_assets=[EpisodeAssetFactory.build(title="cool title")],
                 cover_art_url="fake cover url",
             )
         }
@@ -87,6 +87,10 @@ def test_cannot_get_other_users_episode(
 
     with pytest.raises(EpisodeNotFound):
         service.get_episode(user_id=bob.id, episode_id=feed[0].episode.id)
+
+    bobs_feed = service.get_user_home_feed(user_id=bob.id, page=1, search="title")
+
+    assert len(bobs_feed) == 0
 
 
 def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) -> None:
