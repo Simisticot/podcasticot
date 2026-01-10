@@ -122,6 +122,11 @@ def authenticated_user(
         return service.save_user(user_email)
 
 
+@app.get("/health")
+def health() -> str:
+    return "I'm good :)"
+
+
 class HomeFeed(BaseModel):
     feed_entries: list[PlayInfo]
     next_page: int
