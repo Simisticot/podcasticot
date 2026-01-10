@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: podcasticot
+  namespace: default
+  labels:
+    app: podcasticot
+spec:
+  selector:
+    app: podcasticot
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: podcasticot
+  namespace: default
+  labels:
+    app: podcasticot
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: podcasticot
+  template:
+    metadata:
+      labels:
+        app: podcasticot
+    spec:
+      containers:
+        - name: podcasticot
+          image: podcasticot:latest
+          imagePullPolicy: Never
+          ports:
+          - name: http
+            containerPort: 8700
+          resources:
+            requests:
+              memory: "32Mi"
+              cpu: "50m"
+            limits:
+              memory: "64Mi"
+              cpu: "100m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8700
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8700
+            initialDelaySeconds: 5
+            periodSeconds: 5
