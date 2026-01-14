@@ -23,7 +23,7 @@ class UnknownUser(Exception): ...
 class Datastore:
     def __init__(self, db_string: str) -> None:
         self.db_string: str = db_string
-        self.connection = sqlite3.connect(self.db_string)
+        self.connection = sqlite3.connect(self.db_string, check_same_thread=False)
         self._init_database()
 
     def _init_database(self) -> None:
