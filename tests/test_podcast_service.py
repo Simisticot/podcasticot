@@ -1,3 +1,4 @@
+import sqlite3
 from datetime import datetime, timedelta
 from typing import Callable, Optional
 
@@ -7,6 +8,7 @@ from business.podcast import EpisodeAssets, PreviousListen
 from business.podcast_service import PodcastService
 from business.rss import FakeRssParser, PodcastImport
 from persistence.datastore import Datastore, EpisodeNotFound, UnknownUser
+from persistence.migration import migrate
 
 
 class EpisodeAssetFactory:
@@ -45,8 +47,10 @@ def service_factory() -> Callable[..., PodcastService]:
     ) -> PodcastService:
         if rss_feed_podcasts is None:
             rss_feed_podcasts = {}
+        connection = sqlite3.connect(":memory:")
+        migrate(connection)
         return PodcastService(
-            datastore=Datastore(":memory:"),
+            datastore=Datastore(connection=connection),
             rss_parser=FakeRssParser(imports=rss_feed_podcasts),
         )
 

@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from typing import AsyncGenerator
@@ -33,13 +34,15 @@ class Settings(BaseSettings):
     auth0_algorithms: str
 
     class Config:
-        env_file = ".podcasticotapi.env"
+        env_file = ".env"
         frozen = True
+        extra = "ignore"
 
 
 def podcast_service() -> PodcastService:
+    connection = sqlite3.connect("./db/poddb.db")
     return PodcastService(
-        datastore=Datastore(db_string="./db/poddb.db"), rss_parser=FeedParserRssParser()
+        datastore=Datastore(connection=connection), rss_parser=FeedParserRssParser()
     )
 
 
