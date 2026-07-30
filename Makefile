@@ -8,3 +8,5 @@ debug:
 	uv run -m pdb endpoints.py
 type:
 	uv run pyrefly check
+migrate:
+	uv run persistence/migration.py
