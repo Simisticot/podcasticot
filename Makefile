@@ -3,7 +3,7 @@ test:
 	uv run pytest
 
 dev:
-	uv run fastapi dev endpoints.py
+	uv run endpoints.py serve --reload
 debug:
 	uv run -m pdb endpoints.py
 type:

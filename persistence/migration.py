@@ -19,10 +19,3 @@ def migrate(conn: sqlite3.Connection):
         with conn:
             conn.executescript(sql)
             conn.execute("insert into schema_version (version) values (?)", (version,))
-
-
-if __name__ == "__main__":
-    connection = sqlite3.connect("./db/poddb.db")
-    migrate(connection)
-    connection.close()
-    print("Applied migrations")

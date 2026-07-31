@@ -20,4 +20,4 @@ ENTRYPOINT []
 
 EXPOSE 8700
 
-CMD ["uv", "run", "--no-dev", "fastapi", "run","--port", "8700", "endpoints.py"]
+CMD ["uv", "run", "endpoints.py", "serve", "--port=8700", "--host=0.0.0.0"]
