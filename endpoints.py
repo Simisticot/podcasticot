@@ -126,7 +126,7 @@ def health() -> str:
     return "I'm good :)"
 
 
-class HomeFeed(BaseModel):
+class PodcastFeed(BaseModel):
     feed_entries: list[PlayInfo]
     next_page: int
 
@@ -137,9 +137,23 @@ def my_feed(
     search: str = "",
     user: User = Depends(authenticated_user),
     service: PodcastService = Depends(podcast_service),
-) -> HomeFeed:
-    feed = service.get_user_home_feed(user_id=user.id, page=page, search=search)
-    return HomeFeed(feed_entries=feed, next_page=page + 1)
+) -> PodcastFeed:
+    entries = service.get_user_home_feed(user_id=user.id, page=page, search=search)
+    return PodcastFeed(feed_entries=entries, next_page=page + 1)
+
+
+@app.get("feed/{feed_id}")
+def single_feed(
+    feed_id: str,
+    page: int = 1,
+    user: User = Depends(authenticated_user),
+    chronological: bool = False,
+    service: PodcastService = Depends(podcast_service),
+) -> PodcastFeed:
+    entries = service.get_single_feed(
+        user_id=user.id, page=page, chronological=chronological, feed_id=feed_id
+    )
+    return PodcastFeed(feed_entries=entries, next_page=page + 1)
 
 
 @app.post("/listened/{episode_id}")

@@ -95,11 +95,17 @@ class Datastore:
         return feed_id
 
     def get_single_feed(
-        self, user_id: str, feed_id: str, number_of_episodes: int, page: int
+        self,
+        user_id: str,
+        feed_id: str,
+        number_of_episodes: int,
+        page: int,
+        chronological: bool,
     ) -> list[PlayInfo]:
+        order = "asc" if chronological else "desc"
         cursor = self.connection.cursor()
         cursor.execute(
-            "SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND episode.feed_id = ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
+            f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND episode.feed_id = ? ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
             (
                 user_id,
                 user_id,
