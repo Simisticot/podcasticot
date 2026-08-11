@@ -3,9 +3,9 @@ test:
 	uv run pytest
 
 dev:
-	uv run endpoints.py serve --reload
+	uv run cli.py serve --reload
 debug:
-	uv run -m pdb endpoints.py
+	uv run -m pdb cli.py
 type:
 	uv run pyrefly check
 migrate:
