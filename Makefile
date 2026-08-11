@@ -9,4 +9,4 @@ debug:
 type:
 	uv run pyrefly check
 migrate:
-	uv run persistence/migration.py
+	uv run cli.py migrate
