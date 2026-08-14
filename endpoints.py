@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from pydantic_settings import BaseSettings
 
 from business.entities import User
-from business.podcast import PlayInfo
+from business.podcast import Feed, PlayInfo
 from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
 from persistence.datastore import Datastore, EpisodeNotFound, UnknownUser
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
 
 def podcast_service() -> PodcastService:
-    connection = sqlite3.connect("./db/poddb.db")
+    connection = sqlite3.connect("./db/poddb.db", check_same_thread=False)
     return PodcastService(
         datastore=Datastore(connection=connection), rss_parser=FeedParserRssParser()
     )
@@ -135,14 +135,17 @@ class PodcastFeed(BaseModel):
 def my_feed(
     page: int = 1,
     search: str = "",
+    chronological: bool = False,
     user: User = Depends(authenticated_user),
     service: PodcastService = Depends(podcast_service),
 ) -> PodcastFeed:
-    entries = service.get_user_home_feed(user_id=user.id, page=page, search=search)
+    entries = service.get_user_home_feed(
+        user_id=user.id, page=page, search=search, chronological=chronological
+    )
     return PodcastFeed(feed_entries=entries, next_page=page + 1)
 
 
-@app.get("feed/{feed_id}")
+@app.get("/feed/{feed_id}")
 def single_feed(
     feed_id: str,
     page: int = 1,
@@ -201,3 +204,11 @@ def latest(
 ) -> LatestListen:
     info = service.get_latest_listen_play_info(user.id)
     return LatestListen(play_info=info)
+
+
+@app.get("/subscribed_feeds")
+def subscribed_feeds(
+    user: User = Depends(authenticated_user),
+    service: PodcastService = Depends(podcast_service),
+) -> list[Feed]:
+    return service.get_user_subscribed_feeds(user.id)

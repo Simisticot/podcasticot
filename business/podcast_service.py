@@ -29,6 +29,7 @@ class PodcastService:
         user_id: str,
         page: int,
         search: Optional[str] = None,
+        chronological: bool = False,
         include_finished: Optional[bool] = False,
     ) -> list[PlayInfo]:
         logger.info("fetching home feed")
@@ -38,6 +39,7 @@ class PodcastService:
             page=page,
             search=search,
             include_finished=include_finished,
+            chronological=chronological,
         )
 
     def get_single_feed(
@@ -56,7 +58,10 @@ class PodcastService:
         feed_id = str(uuid4())
         self.datastore.save_episodes(feed_id=feed_id, episodes=podcast.episode_assets)
         self.datastore.save_podcast_feed(
-            feed_id=feed_id, feed_url=feed_url, cover_art_url=podcast.cover_art_url
+            feed_id=feed_id,
+            feed_url=feed_url,
+            cover_art_url=podcast.cover_art_url,
+            title=podcast.title,
         )
         self.datastore.subscribe(user_id=user_id, feed_id=feed_id)
 
@@ -96,9 +101,23 @@ class PodcastService:
             self.datastore.update_links(podcast.episode_assets, feed.id)
             self.datastore.update_lengths(podcast.episode_assets, feed.id)
 
+            if (
+                feed.cover_art_url != podcast.cover_art_url
+                or feed.title != podcast.title
+            ):
+                self.datastore.update_podcast_feed(
+                    title=podcast.title,
+                    cover_art_url=podcast.cover_art_url,
+                    feed_url=feed.url,
+                    feed_id=feed.id,
+                )
+
     def update_all_feeds(self) -> None:
         feeds = self.datastore.get_all_feeds()
         self._update_feeds(feeds)
 
     def get_latest_listen_play_info(self, user_id: str) -> Optional[PlayInfo]:
         return self.datastore.get_latest_listen_play_info(user_id)
+
+    def get_user_subscribed_feeds(self, user_id: str) -> list[Feed]:
+        return self.datastore.get_user_subscribed_feeds(user_id)

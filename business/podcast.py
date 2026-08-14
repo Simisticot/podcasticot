@@ -80,9 +80,9 @@ class PlayInfo(BaseModel):
     previous_listen: Optional[PreviousListen]
 
 
-@dataclass
-class Feed:
+class Feed(BaseModel):
     id: str
+    title: str
     url: str
     cover_art_url: str
 

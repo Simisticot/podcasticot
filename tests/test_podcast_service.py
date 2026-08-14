@@ -79,7 +79,8 @@ def test_cannot_get_other_users_episode(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
-                episode_assets=[EpisodeAssetFactory.build(title="cool title")],
+                title="cool podcast title",
+                episode_assets=[EpisodeAssetFactory.build(title="cool episode title")],
                 cover_art_url="fake cover url",
             )
         }
@@ -100,10 +101,43 @@ def test_cannot_get_other_users_episode(
     assert len(bobs_feed) == 0
 
 
+def test_reverse_home_feed(
+    service_factory: Callable[..., PodcastService],
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                title="cool podcast title",
+                episode_assets=[
+                    EpisodeAssetFactory.build(published_date=date)
+                    for date in [
+                        datetime(day=day, month=1, year=2025) for day in range(1, 3)
+                    ]
+                ],
+                cover_art_url="fake cover url",
+            )
+        }
+    )
+
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+
+    home_feed = service.get_user_home_feed(user_id=alice.id, page=1)
+
+    assert home_feed[0].episode.assets.published_date.day == 2
+
+    chronological_home_feed = service.get_user_home_feed(
+        user_id=alice.id, page=1, chronological=True
+    )
+
+    assert chronological_home_feed[0].episode.assets.published_date.day == 1
+
+
 def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(published_date=date)
                     for date in [
@@ -137,6 +171,7 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build()],
                 cover_art_url="Fake cover url",
             )
@@ -159,6 +194,7 @@ def test_update_single_users_feed(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         published_date=datetime(year=2000, month=1, day=1),
@@ -167,6 +203,7 @@ def test_update_single_users_feed(
                 cover_art_url="Fake cover url",
             ),
             "this is different": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         published_date=datetime(year=2000, month=1, day=1),
@@ -211,6 +248,7 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         published_date=datetime(year=2000, month=1, day=1)
@@ -219,6 +257,7 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
                 cover_art_url="Fake cover url",
             ),
             "this is different": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         published_date=datetime(year=2000, month=1, day=1)
@@ -263,6 +302,7 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         published_date=datetime(year=2000, month=1, day=1)
@@ -322,12 +362,13 @@ def test_play_time_string() -> None:
     assert previous_listen.play_time_string() == "#t=1:01:01"
 
 
-def test_refreshing_updates_download_links(
+def test_refreshing_updates_download_links_podcast_title_and_cover_art_url(
     service_factory: Callable[..., PodcastService],
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         title="this must remain the same",
@@ -347,10 +388,17 @@ def test_refreshing_updates_download_links(
     assert len(alices_feed) == 1
     assert alices_feed[0].episode.assets.download_link == "my_first_cool_link"
 
+    alices_subscriptions = service.get_user_subscribed_feeds(alice.id)
+
+    assert len(alices_subscriptions) == 1
+    assert alices_subscriptions[0].title == "cool podcast title"
+    assert alices_subscriptions[0].cover_art_url == "Fake cover url"
+
     # simulating a change in the remote feed
     service.rss_parser = FakeRssParser(
         imports={
             "this matters": PodcastImport(
+                title="new podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         title="this must remain the same",
@@ -358,7 +406,7 @@ def test_refreshing_updates_download_links(
                         download_link="my_second_cool_link",
                     ),
                 ],
-                cover_art_url="Fake cover url",
+                cover_art_url="new fake cover url",
             ),
         }
     )
@@ -369,11 +417,18 @@ def test_refreshing_updates_download_links(
     assert len(alices_updated_feed) == 1
     assert alices_updated_feed[0].episode.assets.download_link == "my_second_cool_link"
 
+    alices_subscriptions = service.get_user_subscribed_feeds(alice.id)
+
+    assert len(alices_subscriptions) == 1
+    assert alices_subscriptions[0].title == "new podcast title"
+    assert alices_subscriptions[0].cover_art_url == "new fake cover url"
+
 
 def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         title="banana apple",
@@ -403,10 +458,12 @@ def test_get_single_feed(service_factory: Callable[..., PodcastService]) -> None
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build(title="skibidi")],
                 cover_art_url="fake cover url",
             ),
             "this also matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build(title="skibido")],
                 cover_art_url="other fake cover url",
             ),
@@ -438,6 +495,7 @@ def test_get_single_feed_chronological(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[
                     EpisodeAssetFactory.build(
                         published_date=datetime(day=1, month=1, year=2025),
@@ -477,6 +535,7 @@ def test_home_feed_with_listen_info(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build()],
                 cover_art_url="Fake cover url",
             )
@@ -502,6 +561,7 @@ def test_single_feed_with_listen_info(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build()],
                 cover_art_url="Fake cover url",
             )
@@ -529,6 +589,7 @@ def test_home_feed_filters_out_fully_listened_episodes(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build(length=200)],
                 cover_art_url="Fake cover url",
             )
@@ -555,6 +616,7 @@ def test_home_feed_filters_out_almost_fully_listened_episodes(
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
+                title="cool podcast title",
                 episode_assets=[EpisodeAssetFactory.build(length=200)],
                 cover_art_url="Fake cover url",
             )
@@ -573,3 +635,23 @@ def test_home_feed_filters_out_almost_fully_listened_episodes(
 
     # only existing episode is filtered out because within 20 seconds of finished
     assert len(refreshed_home_feed) == 0
+
+
+def test_fetch_subscribed_feeds(
+    service_factory: Callable[..., PodcastService],
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                title="title under test",
+                episode_assets=[],
+                cover_art_url="cover art under test",
+            )
+        }
+    )
+    alice = service.save_user("alice@example.com")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    alice_feeds = service.get_user_subscribed_feeds(alice.id)
+    assert len(alice_feeds) == 1
+    assert alice_feeds[0].title == "title under test"
+    assert alice_feeds[0].cover_art_url == "cover art under test"

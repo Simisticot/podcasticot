@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PodcastImport:
+    title: str
     cover_art_url: str
     episode_assets: list[EpisodeAssets]
 
@@ -35,7 +36,8 @@ class FeedParserRssParser(RssParser):
             logger.info(f"finished loading episode {i} out of {number_of_eps}")
 
         return PodcastImport(
-            cover_art_url=feed.feed.image["href"],  # type: ignore
+            title=feed.feed.title or "missing podcast title",  # type: ignore
+            cover_art_url=feed.feed.image["href"] or "missing cover art url",  # type: ignore
             episode_assets=assets,
         )
 

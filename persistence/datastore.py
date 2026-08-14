@@ -60,15 +60,31 @@ class Datastore:
         return [Subscription(user_id=user_id, feed_id=row[0]) for row in result]
 
     def save_podcast_feed(
-        self, feed_id: str, feed_url: str, cover_art_url: str
+        self, feed_id: str, feed_url: str, cover_art_url: str, title: str
     ) -> None:
         cursor = self.connection.cursor()
         cursor.execute(
-            "insert into podcast_feed (id, feed_url, cover_art_url) values (?,?,?);",
+            "insert into podcast_feed (id, feed_url, cover_art_url, title) values (?,?,?,?);",
             (
                 feed_id,
                 feed_url,
                 cover_art_url,
+                title,
+            ),
+        )
+        self.connection.commit()
+
+    def update_podcast_feed(
+        self, feed_id: str, feed_url: str, cover_art_url: str, title: str
+    ) -> None:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "update podcast_feed set feed_url = ?, cover_art_url = ?, title = ? where id = ?;",
+            (
+                feed_url,
+                cover_art_url,
+                title,
+                feed_id,
             ),
         )
         self.connection.commit()
@@ -150,17 +166,19 @@ class Datastore:
         page: int,
         search: Optional[str],
         include_finished: Optional[bool],
+        chronological: bool,
     ) -> list[PlayInfo]:
+        order = "asc" if chronological else "desc"
         cursor = self.connection.cursor()
         if not search:
             cursor.execute(
-                "SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
+                f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
                 (user_id, user_id, number_of_episodes, number_of_episodes * (page - 1)),
             )
         else:
             formatted_search = f"%{search}%"
             cursor.execute(
-                "SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND (episode.description LIKE ? OR episode.title LIKE ?) ORDER BY episode.published_date DESC LIMIT ? OFFSET ?;",
+                f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND (episode.description LIKE ? OR episode.title LIKE ?) ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
                 (
                     user_id,
                     user_id,
@@ -214,7 +232,7 @@ class Datastore:
     def get_episode(self, episode_id: str, user_id: str) -> Episode:
         cursor = self.connection.cursor()
         cursor.execute(
-            "select title, episode.feed_id, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id join subscription on subscription.feed_id = podcast_feed.id where episode_id = ? and subscription.user_id = ?;",
+            "select episode.title, episode.feed_id, description, download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on podcast_feed.id = episode.feed_id join subscription on subscription.feed_id = podcast_feed.id where episode_id = ? and subscription.user_id = ?;",
             (
                 episode_id,
                 user_id,
@@ -295,24 +313,30 @@ class Datastore:
     def get_user_subscribed_feeds(self, user_id) -> list[Feed]:
         cursor = self.connection.cursor()
         cursor.execute(
-            "select podcast_feed.id, podcast_feed.feed_url, podcast_feed.cover_art_url from subscription join podcast_feed on subscription.feed_id = podcast_feed.id where user_id = ?;",
+            "select podcast_feed.id, podcast_feed.feed_url, podcast_feed.cover_art_url, podcast_feed.title from subscription join podcast_feed on subscription.feed_id = podcast_feed.id where user_id = ?;",
             (user_id,),
         )
         result = cursor.fetchall()
-        feeds = [Feed(id=row[0], url=row[1], cover_art_url=row[2]) for row in result]
+        feeds = [
+            Feed(id=row[0], url=row[1], cover_art_url=row[2], title=row[3])
+            for row in result
+        ]
         return feeds
 
     def get_all_feeds(self) -> list[Feed]:
         cursor = self.connection.cursor()
-        cursor.execute("select id, feed_url, cover_art_url from podcast_feed; ")
+        cursor.execute("select id, feed_url, cover_art_url, title from podcast_feed; ")
         result = cursor.fetchall()
-        feeds = [Feed(id=row[0], url=row[1], cover_art_url=row[2]) for row in result]
+        feeds = [
+            Feed(id=row[0], url=row[1], cover_art_url=row[2], title=row[3])
+            for row in result
+        ]
         return feeds
 
     def get_latest_episode(self, feed_id: str) -> Episode:
         cursor = self.connection.cursor()
         cursor.execute(
-            "select episode_id, episode.feed_id, title, description ,download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
+            "select episode_id, episode.feed_id, episode.title, description ,download_link, published_date, length, podcast_feed.cover_art_url from episode join podcast_feed on episode.feed_id = podcast_feed.id where feed_id = ? order by published_date desc limit 1;",
             (feed_id,),
         )
         result = cursor.fetchone()
