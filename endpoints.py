@@ -58,7 +58,7 @@ def get_jwks_client(settings=Depends(get_settings)) -> PyJWKClient:
 
 class UnauthorizedException(HTTPException):
     def __init__(self, detail: str) -> None:
-        super().__init__(status.HTTP_403_FORBIDDEN, detail=detail)
+        super().__init__(status.HTTP_401_UNAUTHORIZED, detail=detail)
 
 
 def refresh_all_feeds() -> None:
@@ -86,7 +86,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-token_auth = HTTPBearer(auto_error=True)
+token_auth = HTTPBearer(auto_error=False)
 
 
 def authenticated_user_email(
@@ -94,7 +94,8 @@ def authenticated_user_email(
     jwks_client: PyJWKClient = Depends(get_jwks_client),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    assert creds is not None
+    if creds is None:
+        raise UnauthorizedException(detail="Missing auth header")
     assert isinstance(creds.credentials, str)
     signing_key = jwks_client.get_signing_key_from_jwt(creds.credentials).key
     try:
