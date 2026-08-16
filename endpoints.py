@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt.jwks_client import PyJWKClient
 from pydantic import BaseModel
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from business.entities import User
 from business.podcast import Feed, PlayInfo
@@ -32,10 +32,7 @@ class Settings(BaseSettings):
     auth0_issuer: str
     auth0_algorithms: str
 
-    class Config:
-        env_file = ".env"
-        frozen = True
-        extra = "ignore"
+    model_config = SettingsConfigDict(env_file=".env", frozen=True, extra="ignore")
 
 
 def podcast_service() -> PodcastService:
