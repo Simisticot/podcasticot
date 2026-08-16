@@ -21,7 +21,14 @@ if __name__ == "__main__":
         case "serve":
             scheduler.add_job(func=refresh_all_feeds, trigger="interval", minutes=10)
             uvicorn.run(
-                "endpoints:app", host=args.host, port=args.port, reload=args.reload
+                "endpoints:app",
+                host=args.host,
+                port=args.port,
+                reload=args.reload,
+                # before incrementing worker count consider impacts on :
+                # - rate limits
+                # - sqlite connection reuse
+                workers=1,
             )
         case "migrate":
             connection = sqlite3.connect("./db/poddb.db")
