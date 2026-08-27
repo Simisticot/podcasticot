@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from business.entities import Subscription, User
+from business.entities import LoginCandidate, Subscription, User
 from business.podcast import Episode, EpisodeAssets, Feed, PlayInfo, PreviousListen
 
 
@@ -23,10 +23,69 @@ class Datastore:
     def __init__(self, connection: sqlite3.Connection) -> None:
         self.connection = connection
 
-    def save_user(self, id: str, email: str) -> User:
+    def create_session(
+        self, token_hash: str, user_id: str, expires_at: datetime
+    ) -> None:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "insert into session (token_hash, user_id, expires_at) values (?, ?, ?);",
+            (
+                token_hash,
+                user_id,
+                int(expires_at.timestamp()),
+            ),
+        )
+        self.connection.commit()
+
+    def delete_all_sessions(self, user_id: str) -> None:
+        cursor = self.connection.cursor()
+        cursor.execute("delete from session where user_id=?;", (user_id,))
+        self.connection.commit()
+
+    def get_user_from_active_session(
+        self, token_hash: str, current_time: datetime
+    ) -> User:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "select id, email from user u join session s on u.id = s.user_id where s.token_hash = ? and s.expires_at > ?;",
+            (
+                token_hash,
+                int(current_time.timestamp()),
+            ),
+        )
+        result = cursor.fetchone()
+        if result is None:
+            raise UnknownUser
+        return User(id=result[0], email=result[1])
+
+    def set_user_password(self, user_email: str, new_hash: str) -> None:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "update user set password_hash=? where email=?;",
+            (
+                new_hash,
+                user_email,
+            ),
+        )
+        self.connection.commit()
+
+    def count_accounts_registered_after(self, point: datetime) -> int:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "select count(*) from user where created_at > ?", (int(point.timestamp()),)
+        )
+        result = cursor.fetchone()
+        return result[0]
+
+    def register_user(
+        self, id: str, email: str, password_hash: str, created_at: datetime
+    ) -> User:
         cursor = self.connection.cursor()
         try:
-            cursor.execute("INSERT INTO user (id, email) VALUES (?, ?);", (id, email))
+            cursor.execute(
+                "INSERT INTO user (id, email, password_hash, created_at) VALUES (?, ?, ?, ?);",
+                (id, email, password_hash, int(created_at.timestamp())),
+            )
         except sqlite3.IntegrityError:
             raise UserAlreadyExists
         self.connection.commit()
@@ -34,11 +93,42 @@ class Datastore:
 
     def get_user_by_email(self, email: str) -> User:
         cursor = self.connection.cursor()
-        cursor.execute("SELECT * FROM user WHERE email = ?;", (email,))
+        cursor.execute("SELECT id, email FROM user WHERE email = ?;", (email,))
         result = cursor.fetchone()
         if result is None:
             raise UnknownUser
         return User(id=result[0], email=result[1])
+
+    def get_login_candidate(
+        self, email: str, failed_login_cutoff: datetime
+    ) -> LoginCandidate:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "select id, email, password_hash from user where email = ?;",
+            (email,),
+        )
+        user_result = cursor.fetchone()
+        if user_result is None:
+            raise UnknownUser
+        user = User(id=user_result[0], email=user_result[1])
+        cursor.execute(
+            "select count(*) from failed_login where user_id = ? and failed_at > ?;",
+            (user.id, int(failed_login_cutoff.timestamp())),
+        )
+        failed_login_results = cursor.fetchone()
+        return LoginCandidate(
+            user=user,
+            password_hash=user_result[2],
+            failed_logins=failed_login_results[0],
+        )
+
+    def add_failed_login(self, user_id: str, failure_time: datetime) -> None:
+        cursor = self.connection.cursor()
+        cursor.execute(
+            "insert into failed_login (user_id, failed_at) values (?,?);",
+            (user_id, int(failure_time.timestamp())),
+        )
+        self.connection.commit()
 
     def subscribe(self, user_id: str, feed_id: str) -> None:
         cursor = self.connection.cursor()

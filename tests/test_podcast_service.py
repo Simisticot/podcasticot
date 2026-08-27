@@ -1,6 +1,4 @@
-import sqlite3
-from datetime import datetime, timedelta
-from pathlib import Path
+from datetime import datetime, timedelta, timezone
 from typing import Callable, Optional
 
 import pytest
@@ -8,13 +6,7 @@ import pytest
 from business.podcast import EpisodeAssets, PreviousListen
 from business.podcast_service import PodcastService
 from business.rss import FakeRssParser, PodcastImport
-from persistence.datastore import Datastore, EpisodeNotFound, UnknownUser
-from persistence.migration import migrate
-
-
-@pytest.fixture
-def db_path(tmp_path: Path) -> Path:
-    return tmp_path / "podcasticot_test.db"
+from persistence.datastore import EpisodeNotFound, UnknownUser
 
 
 class EpisodeAssetFactory:
@@ -46,30 +38,10 @@ class EpisodeAssetFactory:
         )
 
 
-@pytest.fixture
-def service_factory(db_path: Path) -> Callable[..., PodcastService]:
-    def factory(
-        rss_feed_podcasts: Optional[dict[str, PodcastImport]] = None,
-    ) -> PodcastService:
-        if rss_feed_podcasts is None:
-            rss_feed_podcasts = {}
-        connection = sqlite3.connect(db_path)
-        migrate(connection)
-        return PodcastService(
-            datastore=Datastore(connection=connection),
-            rss_parser=FakeRssParser(imports=rss_feed_podcasts),
-        )
-
-    return factory
-
-
-@pytest.fixture
-def service(service_factory: Callable[..., PodcastService]) -> PodcastService:
-    return service_factory()
-
-
 def test_save_and_find_user(service: PodcastService) -> None:
-    saved_alice = service.save_user("alice@example.com")
+    saved_alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     found_alice = service.find_user_by_email("alice@example.com")
     assert saved_alice == found_alice
 
@@ -91,8 +63,10 @@ def test_cannot_get_other_users_episode(
             )
         }
     )
-    alice = service.save_user("alice@example.com")
-    bob = service.save_user("bob@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
+    bob = service.register_user(password_hash="fake_hash", user_email="bob@example.com")
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
@@ -125,7 +99,9 @@ def test_reverse_home_feed(
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     home_feed = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -155,7 +131,9 @@ def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) ->
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     page_one = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -184,7 +162,9 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -220,8 +200,10 @@ def test_update_single_users_feed(
         }
     )
 
-    alice = service.save_user("alice@example.com")
-    bob = service.save_user("bob@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
+    bob = service.register_user(password_hash="fake_hash", user_email="bob@example.com")
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
@@ -274,8 +256,10 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
         }
     )
 
-    alice = service.save_user("alice@example.com")
-    bob = service.save_user("bob@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
+    bob = service.register_user(password_hash="fake_hash", user_email="bob@example.com")
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
@@ -322,7 +306,9 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
     play_info = alices_feed[0]
@@ -363,7 +349,7 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
 
 def test_play_time_string() -> None:
     previous_listen = PreviousListen(
-        time_listened=timedelta(seconds=3661), time=datetime.now()
+        time_listened=timedelta(seconds=3661), time=datetime.now(timezone.utc)
     )
     assert previous_listen.play_time_string() == "#t=1:01:01"
 
@@ -386,7 +372,9 @@ def test_refreshing_updates_download_links_podcast_title_and_cover_art_url(
             ),
         }
     )
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -450,7 +438,9 @@ def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> N
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
@@ -476,7 +466,9 @@ def test_get_single_feed(service_factory: Callable[..., PodcastService]) -> None
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this also matters")
@@ -517,7 +509,9 @@ def test_get_single_feed_chronological(
             )
         }
     )
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
@@ -548,7 +542,9 @@ def test_home_feed_with_listen_info(
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
     service.update_current_play_time(
@@ -574,7 +570,9 @@ def test_single_feed_with_listen_info(
         }
     )
 
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
     service.update_current_play_time(
@@ -601,7 +599,9 @@ def test_home_feed_filters_out_fully_listened_episodes(
             )
         }
     )
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
     service.update_current_play_time(
@@ -628,7 +628,9 @@ def test_home_feed_filters_out_almost_fully_listened_episodes(
             )
         }
     )
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
     service.update_current_play_time(
@@ -655,7 +657,9 @@ def test_fetch_subscribed_feeds(
             )
         }
     )
-    alice = service.save_user("alice@example.com")
+    alice = service.register_user(
+        password_hash="fake_hash", user_email="alice@example.com"
+    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     alice_feeds = service.get_user_subscribed_feeds(alice.id)
     assert len(alice_feeds) == 1

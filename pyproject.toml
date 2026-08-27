@@ -8,6 +8,7 @@ dependencies = [
     "cryptography>=46.0.2",
     "fastapi[standard]>=0.117.1",
     "feedparser==6.0.11",
+    "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.11.0",
     "pyjwt>=2.10.1",
     "python-dotenv>=0.19.2",

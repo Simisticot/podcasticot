@@ -1,23 +1,29 @@
 import logging
+import secrets
 import sqlite3
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import AsyncGenerator
 
-import jwt
 from apscheduler.schedulers.background import BackgroundScheduler
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Cookie, Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt.jwks_client import PyJWKClient
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from auth import auth
+from auth.auth import hash_password, hash_session_token
 from business.entities import User
 from business.podcast import Feed, PlayInfo
-from business.podcast_service import PodcastService
+from business.podcast_service import PodcastService, TooManyRegistrations
 from business.rss import FeedParserRssParser
-from persistence.datastore import Datastore, EpisodeNotFound, UnknownUser
+from persistence.datastore import (
+    Datastore,
+    EpisodeNotFound,
+    UnknownUser,
+    UserAlreadyExists,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,19 +33,10 @@ logging.basicConfig(
 
 
 class Settings(BaseSettings):
-    auth0_domain: str
-    auth0_audience: str
-    auth0_issuer: str
-    auth0_algorithms: str
+    secret_admission_string: str
+    db_connection_string: str = "./db/poddb.db"
 
     model_config = SettingsConfigDict(env_file=".env", frozen=True, extra="ignore")
-
-
-def podcast_service() -> PodcastService:
-    connection = sqlite3.connect("./db/poddb.db", check_same_thread=False)
-    return PodcastService(
-        datastore=Datastore(connection=connection), rss_parser=FeedParserRssParser()
-    )
 
 
 @lru_cache
@@ -47,15 +44,26 @@ def get_settings() -> Settings:
     return Settings()
 
 
-@lru_cache
-def get_jwks_client(settings=Depends(get_settings)) -> PyJWKClient:
-    jwks_url = f"https://{settings.auth0_domain}/.well-known/jwks.json"
-    return jwt.PyJWKClient(jwks_url)
+def podcast_service(settings: Settings = Depends(get_settings)) -> PodcastService:
+    connection = sqlite3.connect(settings.db_connection_string, check_same_thread=False)
+    return PodcastService(
+        datastore=Datastore(connection=connection), rss_parser=FeedParserRssParser()
+    )
 
 
-class UnauthorizedException(HTTPException):
+class TooManyRequests(HTTPException):
+    def __init__(self, detail: str) -> None:
+        super().__init__(status.HTTP_429_TOO_MANY_REQUESTS, detail=detail)
+
+
+class Unauthorized(HTTPException):
     def __init__(self, detail: str) -> None:
         super().__init__(status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+
+class BadRequest(HTTPException):
+    def __init__(self, detail: str) -> None:
+        super().__init__(status.HTTP_400_BAD_REQUEST, detail=detail)
 
 
 def refresh_all_feeds() -> None:
@@ -83,40 +91,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-token_auth = HTTPBearer(auto_error=False)
-
-
-def authenticated_user_email(
-    creds: HTTPAuthorizationCredentials | None = Depends(token_auth),
-    jwks_client: PyJWKClient = Depends(get_jwks_client),
-    settings: Settings = Depends(get_settings),
-) -> str:
-    if creds is None:
-        raise UnauthorizedException(detail="Missing auth header")
-    assert isinstance(creds.credentials, str)
-    signing_key = jwks_client.get_signing_key_from_jwt(creds.credentials).key
-    try:
-        payload = jwt.decode(
-            creds.credentials,
-            signing_key,
-            algorithms=[settings.auth0_algorithms],
-            audience=settings.auth0_audience,
-            issuer=settings.auth0_issuer,
-        )
-    except Exception as error:
-        raise UnauthorizedException(detail=str(error))
-
-    return payload["podcasticot/email"]
-
 
 def authenticated_user(
-    user_email: str = Depends(authenticated_user_email),
+    response: Response,
+    session=Cookie(""),
     service: PodcastService = Depends(podcast_service),
 ) -> User:
     try:
-        return service.find_user_by_email(user_email)
+        return service.find_user_by_active_session(
+            token=session, current_time=datetime.now(timezone.utc)
+        )
     except UnknownUser:
-        return service.save_user(user_email)
+        response.delete_cookie("session")
+        raise Unauthorized(detail="invalid session")
+
+
+class Credentials(BaseModel):
+    email: str
+    password: str
+
+    @field_validator("email", mode="after")
+    @classmethod
+    def lower_email(cls, value: str) -> str:
+        return value.lower()
 
 
 @app.get("/health")
@@ -124,9 +121,95 @@ def health() -> str:
     return "I'm good :)"
 
 
+class Registration(BaseModel):
+    credentials: Credentials
+    secret_admission_string: str
+
+
+@app.post("/register")
+def register(
+    registration: Registration,
+    service: PodcastService = Depends(podcast_service),
+    settings: Settings = Depends(get_settings),
+) -> str:
+    if not secrets.compare_digest(
+        registration.secret_admission_string, settings.secret_admission_string
+    ):
+        raise BadRequest(detail="Wrong secret admission string")
+    try:
+        service.register_user(
+            user_email=registration.credentials.email,
+            password_hash=hash_password(password=registration.credentials.password),
+        )
+        return "Welcome :)"
+    except UserAlreadyExists:
+        raise BadRequest(detail="Email already taken")
+    except TooManyRegistrations:
+        raise TooManyRequests(
+            detail="Too many registrations recently, come back some other day"
+        )
+
+
+@app.post("/login")
+def login(
+    credentials: Credentials,
+    response: Response,
+    service: PodcastService = Depends(podcast_service),
+) -> str:
+    try:
+        candidate = service.get_login_candidate(credentials.email)
+        if candidate.failed_logins > 3:
+            raise TooManyRequests(detail="Too many failed attempts, come back later")
+        if auth.password_is_valid(
+            password=credentials.password, hash=candidate.password_hash
+        ):
+            # clear existing sessions to avoid having multiple active sessions
+            service.delete_all_sessions(user_id=candidate.user.id)
+
+            session_token = secrets.token_urlsafe(32)
+            session_token_hash = hash_session_token(session_token)
+            service.create_session(
+                token_hash=session_token_hash,
+                user_id=candidate.user.id,
+                expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+            )
+            response.set_cookie(
+                key="session",
+                value=session_token,
+                httponly=True,
+                secure=True,
+                samesite="lax",
+                max_age=30 * 24 * 60 * 60,  # a month
+            )
+            return "You are now logged in"
+        else:
+            service.add_failed_login(user_id=candidate.user.id)
+            raise BadRequest(detail="Wrong credentials")
+    except UnknownUser:
+        raise BadRequest(detail="Wrong credentials")
+
+
+@app.post("/logout")
+def logout(
+    response: Response,
+    user: User = Depends(authenticated_user),
+    service: PodcastService = Depends(podcast_service),
+) -> str:
+    service.delete_all_sessions(user_id=user.id)
+    response.delete_cookie(key="session")
+    return "goodbye"
+
+
 class PodcastFeed(BaseModel):
     feed_entries: list[PlayInfo]
     next_page: int
+
+
+@app.get("/me")
+def me(
+    user: User = Depends(authenticated_user),
+) -> User:
+    return user
 
 
 @app.get("/my_feed")

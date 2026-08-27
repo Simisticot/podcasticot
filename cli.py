@@ -1,9 +1,10 @@
 import argparse
 import sqlite3
+from getpass import getpass
 
 import uvicorn
 
-from endpoints import refresh_all_feeds, scheduler
+from endpoints import get_settings, podcast_service, refresh_all_feeds, scheduler
 from persistence.migration import migrate
 
 if __name__ == "__main__":
@@ -26,14 +27,18 @@ if __name__ == "__main__":
                 port=args.port,
                 reload=args.reload,
                 # before incrementing worker count consider impacts on :
-                # - rate limits
                 # - sqlite connection reuse
                 workers=1,
             )
         case "migrate":
-            connection = sqlite3.connect("./db/poddb.db")
+            connection = sqlite3.connect(get_settings().db_connection_string)
             migrate(connection)
             connection.close()
             print("Applied migrations")
+        case "setpass":
+            email = input("user email:")
+            password = getpass("new password:")
+            service = podcast_service(settings=get_settings())
+            service.set_user_password(user_email=email, new_password=password)
         case _:
             parser.print_help()

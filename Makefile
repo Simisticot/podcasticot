@@ -10,3 +10,5 @@ type:
 	uv run pyrefly check
 migrate:
 	uv run cli.py migrate
+setpass:
+	uv run cli.py setpass
