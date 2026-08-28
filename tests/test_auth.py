@@ -6,7 +6,7 @@ import pytest
 from _pytest.fixtures import fixture
 from fastapi.testclient import TestClient
 
-from business.podcast_service import PodcastService
+from business.user_service import UserService
 from endpoints import app, get_settings
 from persistence.datastore import UnknownUser
 from persistence.migration import migrate
@@ -81,7 +81,7 @@ def test_register_account_and_login(test_client: TestClient) -> None:
 
 
 def test_set_password_revokes_sessions(
-    test_client: TestClient, service: PodcastService
+    test_client: TestClient, user_service: UserService
 ) -> None:
     register_response = test_client.post(
         "/register",
@@ -98,14 +98,14 @@ def test_set_password_revokes_sessions(
     assert login_response.status_code == 200
 
     # set password to tata
-    service.set_user_password(user_email="alice@example.com", new_password="tata")
+    user_service.set_user_password(user_email="alice@example.com", new_password="tata")
 
     me_response = test_client.get("/me")
     assert me_response.status_code == 401, "session should be reset by set password"
 
 
 def test_set_password_sets_password(
-    test_client: TestClient, service: PodcastService
+    test_client: TestClient, user_service: UserService
 ) -> None:
     register_response = test_client.post(
         "/register",
@@ -126,7 +126,7 @@ def test_set_password_sets_password(
     )
 
     # set password to tata
-    service.set_user_password(user_email="alice@example.com", new_password="tata")
+    user_service.set_user_password(user_email="alice@example.com", new_password="tata")
 
     login_response = test_client.post(
         "/login", json={"email": "alice@example.com", "password": "tata"}
@@ -141,7 +141,7 @@ def test_set_password_sets_password(
 
 
 def test_logout_deletes_session(
-    test_client: TestClient, service: PodcastService
+    test_client: TestClient, user_service: UserService
 ) -> None:
     register_response = test_client.post(
         "/register",
@@ -161,7 +161,7 @@ def test_logout_deletes_session(
     assert logout_response.status_code == 200
 
     with pytest.raises(UnknownUser):
-        service.find_user_by_active_session(
+        user_service.find_user_by_active_session(
             token=token, current_time=datetime.now(timezone.utc)
         )
 

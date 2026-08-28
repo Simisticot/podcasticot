@@ -16,8 +16,9 @@ from auth import auth
 from auth.auth import hash_password, hash_session_token
 from business.entities import User
 from business.podcast import Feed, PlayInfo
-from business.podcast_service import PodcastService, TooManyRegistrations
+from business.podcast_service import PodcastService
 from business.rss import FeedParserRssParser
+from business.user_service import TooManyRegistrations, UserService
 from persistence.datastore import (
     Datastore,
     EpisodeNotFound,
@@ -44,8 +45,21 @@ def get_settings() -> Settings:
     return Settings()
 
 
-def podcast_service(settings: Settings = Depends(get_settings)) -> PodcastService:
-    connection = sqlite3.connect(settings.db_connection_string, check_same_thread=False)
+def database_connection(
+    settings: Settings = Depends(get_settings),
+) -> sqlite3.Connection:
+    return sqlite3.connect(settings.db_connection_string, check_same_thread=False)
+
+
+def user_service(
+    connection: sqlite3.Connection = Depends(database_connection),
+) -> UserService:
+    return UserService(datastore=Datastore(connection=connection))
+
+
+def podcast_service(
+    connection: sqlite3.Connection = Depends(database_connection),
+) -> PodcastService:
     return PodcastService(
         datastore=Datastore(connection=connection), rss_parser=FeedParserRssParser()
     )
@@ -95,7 +109,7 @@ app.add_middleware(
 def authenticated_user(
     response: Response,
     session=Cookie(""),
-    service: PodcastService = Depends(podcast_service),
+    service: UserService = Depends(user_service),
 ) -> User:
     try:
         return service.find_user_by_active_session(
@@ -129,7 +143,7 @@ class Registration(BaseModel):
 @app.post("/register")
 def register(
     registration: Registration,
-    service: PodcastService = Depends(podcast_service),
+    service: UserService = Depends(user_service),
     settings: Settings = Depends(get_settings),
 ) -> str:
     if not secrets.compare_digest(
@@ -154,7 +168,7 @@ def register(
 def login(
     credentials: Credentials,
     response: Response,
-    service: PodcastService = Depends(podcast_service),
+    service: UserService = Depends(user_service),
 ) -> str:
     try:
         candidate = service.get_login_candidate(credentials.email)
@@ -193,7 +207,7 @@ def login(
 def logout(
     response: Response,
     user: User = Depends(authenticated_user),
-    service: PodcastService = Depends(podcast_service),
+    service: UserService = Depends(user_service),
 ) -> str:
     service.delete_all_sessions(user_id=user.id)
     response.delete_cookie(key="session")

@@ -4,7 +4,7 @@ from getpass import getpass
 
 import uvicorn
 
-from endpoints import get_settings, podcast_service, refresh_all_feeds, scheduler
+from endpoints import get_settings, refresh_all_feeds, scheduler, user_service
 from persistence.migration import migrate
 
 if __name__ == "__main__":
@@ -38,7 +38,7 @@ if __name__ == "__main__":
         case "setpass":
             email = input("user email:")
             password = getpass("new password:")
-            service = podcast_service(settings=get_settings())
+            service = user_service()
             service.set_user_password(user_email=email, new_password=password)
         case _:
             parser.print_help()

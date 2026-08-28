@@ -3,9 +3,11 @@ from typing import Callable, Optional
 
 import pytest
 
+from business.entities import User
 from business.podcast import EpisodeAssets, PreviousListen
 from business.podcast_service import PodcastService
 from business.rss import FakeRssParser, PodcastImport
+from business.user_service import UserService
 from persistence.datastore import EpisodeNotFound, UnknownUser
 
 
@@ -38,21 +40,21 @@ class EpisodeAssetFactory:
         )
 
 
-def test_save_and_find_user(service: PodcastService) -> None:
-    saved_alice = service.register_user(
+def test_save_and_find_user(user_service: UserService) -> None:
+    saved_alice = user_service.register_user(
         password_hash="fake_hash", user_email="alice@example.com"
     )
-    found_alice = service.find_user_by_email("alice@example.com")
+    found_alice = user_service.find_user_by_email("alice@example.com")
     assert saved_alice == found_alice
 
 
-def test_find_user_fails_for_nonexistent_user(service: PodcastService) -> None:
+def test_find_user_fails_for_nonexistent_user(user_service: UserService) -> None:
     with pytest.raises(UnknownUser):
-        service.find_user_by_email("alice@example.com")
+        user_service.find_user_by_email("alice@example.com")
 
 
 def test_cannot_get_other_users_episode(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User, bob: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -63,10 +65,6 @@ def test_cannot_get_other_users_episode(
             )
         }
     )
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
-    bob = service.register_user(password_hash="fake_hash", user_email="bob@example.com")
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
@@ -82,7 +80,7 @@ def test_cannot_get_other_users_episode(
 
 
 def test_reverse_home_feed(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -99,9 +97,6 @@ def test_reverse_home_feed(
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     home_feed = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -115,7 +110,9 @@ def test_reverse_home_feed(
     assert chronological_home_feed[0].episode.assets.published_date.day == 1
 
 
-def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) -> None:
+def test_get_second_feed_page(
+    service_factory: Callable[..., PodcastService], alice: User
+) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
@@ -131,9 +128,6 @@ def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) ->
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     page_one = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -151,7 +145,9 @@ def test_get_second_feed_page(service_factory: Callable[..., PodcastService]) ->
         assert day > 0
 
 
-def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> None:
+def test_subscribe_to_feed(
+    service_factory: Callable[..., PodcastService], alice: User
+) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
@@ -162,9 +158,6 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
@@ -175,7 +168,7 @@ def test_subscribe_to_feed(service_factory: Callable[..., PodcastService]) -> No
 
 
 def test_update_single_users_feed(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User, bob: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -199,11 +192,6 @@ def test_update_single_users_feed(
             ),
         }
     )
-
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
-    bob = service.register_user(password_hash="fake_hash", user_email="bob@example.com")
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
@@ -232,7 +220,9 @@ def test_update_single_users_feed(
     assert len(bobs_new_feed) == 2
 
 
-def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> None:
+def test_update_all_feeds(
+    service_factory: Callable[..., PodcastService], alice: User, bob: User
+) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
@@ -255,11 +245,6 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
             ),
         }
     )
-
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
-    bob = service.register_user(password_hash="fake_hash", user_email="bob@example.com")
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     service.subscribe_user_to_podcast(user_id=bob.id, feed_url="this is different")
@@ -288,7 +273,7 @@ def test_update_all_feeds(service_factory: Callable[..., PodcastService]) -> Non
     assert len(bobs_new_feed) == 2
 
 
-def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
+def test_play_info(service_factory: Callable[..., PodcastService], alice: User) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
@@ -306,9 +291,6 @@ def test_play_info(service_factory: Callable[..., PodcastService]) -> None:
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     alices_feed = service.get_user_home_feed(user_id=alice.id, page=1)
     play_info = alices_feed[0]
@@ -355,7 +337,7 @@ def test_play_time_string() -> None:
 
 
 def test_refreshing_updates_download_links_podcast_title_and_cover_art_url(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -371,9 +353,6 @@ def test_refreshing_updates_download_links_podcast_title_and_cover_art_url(
                 cover_art_url="Fake cover url",
             ),
         }
-    )
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
     )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
@@ -418,7 +397,9 @@ def test_refreshing_updates_download_links_podcast_title_and_cover_art_url(
     assert alices_subscriptions[0].cover_art_url == "new fake cover url"
 
 
-def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> None:
+def test_search_for_episode(
+    service_factory: Callable[..., PodcastService], alice: User
+) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
@@ -438,10 +419,6 @@ def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> N
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
-
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
 
     feed = service.get_user_home_feed(user_id=alice.id, page=1, search="apple")
@@ -450,7 +427,9 @@ def test_search_for_episode(service_factory: Callable[..., PodcastService]) -> N
     assert feed[0].episode.assets.description == "podcast about bananas and apples"
 
 
-def test_get_single_feed(service_factory: Callable[..., PodcastService]) -> None:
+def test_get_single_feed(
+    service_factory: Callable[..., PodcastService], alice: User
+) -> None:
     service = service_factory(
         rss_feed_podcasts={
             "this matters": PodcastImport(
@@ -464,10 +443,6 @@ def test_get_single_feed(service_factory: Callable[..., PodcastService]) -> None
                 cover_art_url="other fake cover url",
             ),
         }
-    )
-
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
     )
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
@@ -488,7 +463,7 @@ def test_get_single_feed(service_factory: Callable[..., PodcastService]) -> None
 
 
 def test_get_single_feed_chronological(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -509,9 +484,6 @@ def test_get_single_feed_chronological(
             )
         }
     )
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
 
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
@@ -530,7 +502,7 @@ def test_get_single_feed_chronological(
 
 
 def test_home_feed_with_listen_info(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -542,9 +514,6 @@ def test_home_feed_with_listen_info(
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
     service.update_current_play_time(
@@ -558,7 +527,7 @@ def test_home_feed_with_listen_info(
 
 
 def test_single_feed_with_listen_info(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -570,9 +539,6 @@ def test_single_feed_with_listen_info(
         }
     )
 
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
-    )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
     service.update_current_play_time(
@@ -588,7 +554,7 @@ def test_single_feed_with_listen_info(
 
 
 def test_home_feed_filters_out_fully_listened_episodes(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -598,9 +564,6 @@ def test_home_feed_filters_out_fully_listened_episodes(
                 cover_art_url="Fake cover url",
             )
         }
-    )
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
     )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
@@ -617,7 +580,7 @@ def test_home_feed_filters_out_fully_listened_episodes(
 
 
 def test_home_feed_filters_out_almost_fully_listened_episodes(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -627,9 +590,6 @@ def test_home_feed_filters_out_almost_fully_listened_episodes(
                 cover_art_url="Fake cover url",
             )
         }
-    )
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
     )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
@@ -646,7 +606,7 @@ def test_home_feed_filters_out_almost_fully_listened_episodes(
 
 
 def test_fetch_subscribed_feeds(
-    service_factory: Callable[..., PodcastService],
+    service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
     service = service_factory(
         rss_feed_podcasts={
@@ -656,9 +616,6 @@ def test_fetch_subscribed_feeds(
                 cover_art_url="cover art under test",
             )
         }
-    )
-    alice = service.register_user(
-        password_hash="fake_hash", user_email="alice@example.com"
     )
     service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
     alice_feeds = service.get_user_subscribed_feeds(alice.id)
