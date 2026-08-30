@@ -1,10 +1,11 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from _pytest.fixtures import fixture
 from fastapi.testclient import TestClient
+from freezegun import freeze_time
 
 from business.user_service import UserService
 from endpoints import app, get_settings
@@ -162,7 +163,7 @@ def test_logout_deletes_session(
 
     with pytest.raises(UnknownUser):
         user_service.find_user_by_active_session(
-            token=token, current_time=datetime.now(timezone.utc)
+            token=token, current_time=datetime.now(UTC)
         )
 
 
@@ -213,3 +214,27 @@ def test_4th_login_attempt_within_an_hour_fails(test_client: TestClient) -> None
     assert login_response.status_code == 429, (
         "4th login attempty should get rate limited"
     )
+
+
+def test_session_expires(test_client: TestClient) -> None:
+    with freeze_time("2016-01-04"):
+        register_response = test_client.post(
+            "/register",
+            json={
+                "credentials": {"email": "alice@example.com", "password": "toto"},
+                "secret_admission_string": "titi",
+            },
+        )
+        assert register_response.status_code == 200
+        login_response = test_client.post(
+            "/login", json={"email": "alice@example.com", "password": "toto"}
+        )
+        assert login_response.status_code == 200
+
+    with freeze_time("2016-01-03"):  # 29 days later
+        me_response = test_client.get("/me")
+        assert me_response.status_code == 200, "session has not expired yet"
+
+    with freeze_time("2016-02-04"):  # a month later
+        me_response = test_client.get("/me")
+        assert me_response.status_code == 401, "session has expired"
