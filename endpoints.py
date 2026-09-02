@@ -37,9 +37,9 @@ logging.basicConfig(
 class Settings(BaseSettings):
     secret_admission_string: str
     db_connection_string: str = "./db/poddb.db"
-    sentry_dsn: str
-    sentry_default_pii: bool
     environment: str
+    sentry_dsn: str | None = None
+    sentry_default_pii: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", frozen=True, extra="ignore")
 
