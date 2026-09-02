@@ -1,7 +1,7 @@
 import logging
 import secrets
 import sqlite3
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
@@ -51,8 +51,12 @@ def get_settings() -> Settings:
 
 def database_connection(
     settings: Settings = Depends(get_settings),
-) -> sqlite3.Connection:
-    return sqlite3.connect(settings.db_connection_string, check_same_thread=False)
+) -> Generator[sqlite3.Connection]:
+    connection = sqlite3.connect(settings.db_connection_string, check_same_thread=False)
+    try:
+        yield connection
+    finally:
+        connection.close()
 
 
 def user_service(
@@ -85,9 +89,11 @@ class BadRequest(HTTPException):
 
 
 def refresh_all_feeds() -> None:
-    podcast_service(
-        connection=database_connection(settings=get_settings())
-    ).update_all_feeds()
+    connection = sqlite3.connect(get_settings().db_connection_string)
+    try:
+        podcast_service(connection=connection).update_all_feeds()
+    finally:
+        connection.close()
 
 
 scheduler = BackgroundScheduler()
