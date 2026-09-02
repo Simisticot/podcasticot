@@ -143,7 +143,6 @@ class Credentials(BaseModel):
 
 @app.get("/health")
 def health() -> str:
-    raise Exception("oh no!")
     return "I'm good :)"
 
 
