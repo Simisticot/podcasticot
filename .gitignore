@@ -10,3 +10,4 @@ venv
 venvasticot
 scratch.py
 k8s/**/secrets.yaml
+deploy.sh
