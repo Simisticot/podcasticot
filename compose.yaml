@@ -1,6 +1,6 @@
 services:
   podcasticot:
-    build: .
+    image: simisticot/podcasticot:latest
     ports:
       - "127.0.0.1:8700:8700"
     volumes:
