@@ -484,6 +484,7 @@ dependencies = [
     { name = "pyjwt" },
     { name = "python-dotenv" },
     { name = "requests" },
+    { name = "sentry-sdk" },
 ]
 
 [package.dev-dependencies]
@@ -506,6 +507,7 @@ requires-dist = [
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "python-dotenv", specifier = ">=0.19.2" },
     { name = "requests", specifier = ">=2.27.1" },
+    { name = "sentry-sdk", specifier = ">=2.39.0" },
 ]
 
 [package.metadata.requires-dev]

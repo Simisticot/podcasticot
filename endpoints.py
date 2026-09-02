@@ -1,11 +1,12 @@
 import logging
 import secrets
 import sqlite3
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from functools import lru_cache
-from typing import AsyncGenerator
 
+import sentry_sdk
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,6 +37,9 @@ logging.basicConfig(
 class Settings(BaseSettings):
     secret_admission_string: str
     db_connection_string: str = "./db/poddb.db"
+    sentry_dsn: str
+    sentry_default_pii: bool
+    environment: str
 
     model_config = SettingsConfigDict(env_file=".env", frozen=True, extra="ignore")
 
@@ -89,6 +93,13 @@ scheduler = BackgroundScheduler()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, FastAPI]:
+    settings = get_settings()
+    if settings.sentry_dsn:
+        sentry_sdk.init(
+            dsn=settings.sentry_dsn,
+            environment=settings.environment,
+            send_default_pii=settings.sentry_default_pii,
+        )
     scheduler.start()
     yield
     scheduler.shutdown()
@@ -113,7 +124,7 @@ def authenticated_user(
 ) -> User:
     try:
         return service.find_user_by_active_session(
-            token=session, current_time=datetime.now(timezone.utc)
+            token=session, current_time=datetime.now(UTC)
         )
     except UnknownUser:
         response.delete_cookie("session")
@@ -132,6 +143,7 @@ class Credentials(BaseModel):
 
 @app.get("/health")
 def health() -> str:
+    raise Exception("oh no!")
     return "I'm good :)"
 
 
@@ -185,7 +197,7 @@ def login(
             service.create_session(
                 token_hash=session_token_hash,
                 user_id=candidate.user.id,
-                expires_at=datetime.now(timezone.utc) + timedelta(days=30),
+                expires_at=datetime.now(UTC) + timedelta(days=30),
             )
             response.set_cookie(
                 key="session",
