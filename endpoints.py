@@ -85,7 +85,9 @@ class BadRequest(HTTPException):
 
 
 def refresh_all_feeds() -> None:
-    podcast_service().update_all_feeds()
+    podcast_service(
+        connection=database_connection(settings=get_settings())
+    ).update_all_feeds()
 
 
 scheduler = BackgroundScheduler()
