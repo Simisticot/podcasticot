@@ -4,7 +4,7 @@ from getpass import getpass
 
 import uvicorn
 
-from endpoints import get_settings, refresh_all_feeds, scheduler, user_service
+from endpoints import get_settings, user_service
 from persistence.migration import migrate
 
 if __name__ == "__main__":
@@ -20,7 +20,6 @@ if __name__ == "__main__":
 
     match args.command:
         case "serve":
-            scheduler.add_job(func=refresh_all_feeds, trigger="interval", minutes=10)
             uvicorn.run(
                 "endpoints:app",
                 host=args.host,

@@ -108,6 +108,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, FastAPI]:
             environment=settings.environment,
             send_default_pii=settings.sentry_default_pii,
         )
+    scheduler.add_job(func=refresh_all_feeds, trigger="interval", minutes=10)
     scheduler.start()
     yield
     scheduler.shutdown()
