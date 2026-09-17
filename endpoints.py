@@ -197,9 +197,6 @@ def login(
         if auth.password_is_valid(
             password=credentials.password, hash=candidate.password_hash
         ):
-            # clear existing sessions to avoid having multiple active sessions
-            service.delete_all_sessions(user_id=candidate.user.id)
-
             session_token = secrets.token_urlsafe(32)
             session_token_hash = hash_session_token(session_token)
             service.create_session(
