@@ -1,5 +1,5 @@
-from datetime import datetime, timedelta, timezone
-from typing import Callable, Optional
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -15,11 +15,11 @@ class EpisodeAssetFactory:
     @classmethod
     def build(
         cls,
-        title: Optional[str] = None,
-        published_date: Optional[datetime] = None,
-        download_link: Optional[str] = None,
-        description: Optional[str] = None,
-        length: Optional[int] = None,
+        title: str | None = None,
+        published_date: datetime | None = None,
+        download_link: str | None = None,
+        description: str | None = None,
+        length: int | None = None,
     ) -> EpisodeAssets:
         if description is None:
             description = "test_description"
@@ -331,7 +331,7 @@ def test_play_info(service_factory: Callable[..., PodcastService], alice: User) 
 
 def test_play_time_string() -> None:
     previous_listen = PreviousListen(
-        time_listened=timedelta(seconds=3661), time=datetime.now(timezone.utc)
+        time_listened=timedelta(seconds=3661), time=datetime.now(UTC)
     )
     assert previous_listen.play_time_string() == "#t=1:01:01"
 
@@ -622,3 +622,40 @@ def test_fetch_subscribed_feeds(
     assert len(alice_feeds) == 1
     assert alice_feeds[0].title == "title under test"
     assert alice_feeds[0].cover_art_url == "cover art under test"
+
+
+def test_get_single_feed_in_home(
+    service_factory: Callable[..., PodcastService], alice: User
+) -> None:
+    service = service_factory(
+        rss_feed_podcasts={
+            "this matters": PodcastImport(
+                title="cool podcast title",
+                episode_assets=[EpisodeAssetFactory.build(title="skibidi")],
+                cover_art_url="fake cover url",
+            ),
+            "this also matters": PodcastImport(
+                title="cool podcast title",
+                episode_assets=[EpisodeAssetFactory.build(title="skibido")],
+                cover_art_url="other fake cover url",
+            ),
+        }
+    )
+
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
+    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this also matters")
+
+    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
+
+    assert len(home_feed) == 2
+
+    first_play_info = home_feed[0]
+
+    single_feed = service.get_user_home_feed(
+        user_id=alice.id,
+        page=0,
+        feed_id=first_play_info.episode.feed_id,
+    )
+
+    assert len(single_feed) == 1
+    assert single_feed[0] == first_play_info

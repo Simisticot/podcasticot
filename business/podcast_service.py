@@ -1,7 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from business.podcast import Episode, Feed, PlayInfo
@@ -20,9 +19,10 @@ class PodcastService:
         self,
         user_id: str,
         page: int,
-        search: Optional[str] = None,
+        feed_id: str | None = None,
+        search: str | None = None,
         chronological: bool = False,
-        include_finished: Optional[bool] = False,
+        include_finished: bool | None = False,
     ) -> list[PlayInfo]:
         logger.info("fetching home feed")
         return self.datastore.get_user_home_feed(
@@ -32,6 +32,7 @@ class PodcastService:
             search=search,
             include_finished=include_finished,
             chronological=chronological,
+            feed_id=feed_id,
         )
 
     def get_single_feed(
@@ -75,7 +76,7 @@ class PodcastService:
             episode_id=episode_id,
             user_id=user_id,
             seconds=seconds,
-            time=datetime.now(timezone.utc),
+            time=datetime.now(UTC),
         )
 
     def update_user_feeds(self, user_id: str) -> None:
@@ -111,7 +112,7 @@ class PodcastService:
         feeds = self.datastore.get_all_feeds()
         self._update_feeds(feeds)
 
-    def get_latest_listen_play_info(self, user_id: str) -> Optional[PlayInfo]:
+    def get_latest_listen_play_info(self, user_id: str) -> PlayInfo | None:
         return self.datastore.get_latest_listen_play_info(user_id)
 
     def get_user_subscribed_feeds(self, user_id: str) -> list[Feed]:

@@ -248,11 +248,16 @@ def my_feed(
     page: int = 1,
     search: str = "",
     chronological: bool = False,
+    feed_id: str | None = None,
     user: User = Depends(authenticated_user),
     service: PodcastService = Depends(podcast_service),
 ) -> PodcastFeed:
     entries = service.get_user_home_feed(
-        user_id=user.id, page=page, search=search, chronological=chronological
+        user_id=user.id,
+        page=page,
+        search=search,
+        chronological=chronological,
+        feed_id=feed_id,
     )
     return PodcastFeed(feed_entries=entries, next_page=page + 1)
 

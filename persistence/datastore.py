@@ -1,6 +1,5 @@
 import sqlite3
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from business.entities import LoginCandidate, Subscription, User
@@ -254,30 +253,33 @@ class Datastore:
         user_id: str,
         number_of_episodes: int,
         page: int,
-        search: Optional[str],
-        include_finished: Optional[bool],
+        search: str | None,
+        include_finished: bool | None,
         chronological: bool,
+        feed_id: str | None = None,
     ) -> list[PlayInfo]:
+        params: list[str | int] = [
+            user_id,
+            user_id,
+        ]
+        filters = ["subscription.user_id = ?"]
+        if search:
+            formatted_search = f"%{search}%"
+            filters.append("(episode.description like ? or episode.title like ?)")
+            params.extend([formatted_search, formatted_search])
+
+        if feed_id:
+            filters.append("(subscription.feed_id = ?)")
+            params.append(feed_id)
+
         order = "asc" if chronological else "desc"
         cursor = self.connection.cursor()
-        if not search:
-            cursor.execute(
-                f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
-                (user_id, user_id, number_of_episodes, number_of_episodes * (page - 1)),
-            )
-        else:
-            formatted_search = f"%{search}%"
-            cursor.execute(
-                f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND (episode.description LIKE ? OR episode.title LIKE ?) ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
-                (
-                    user_id,
-                    user_id,
-                    formatted_search,
-                    formatted_search,
-                    number_of_episodes,
-                    number_of_episodes * (page - 1),
-                ),
-            )
+        params.extend([number_of_episodes, number_of_episodes * (page - 1)])
+        filter_string = " and ".join(filters)
+        cursor.execute(
+            f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE {filter_string} ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
+            params,
+        )
         result = cursor.fetchall()
         episodes: list[PlayInfo] = []
         for row in result:
@@ -356,7 +358,7 @@ class Datastore:
 
     def get_previous_listen(
         self, user_id: str, episode_id: str
-    ) -> Optional[PreviousListen]:
+    ) -> PreviousListen | None:
         cursor = self.connection.cursor()
         cursor.execute(
             "select seconds, time from previous_listen where user_id = ? and episode_id = ?;",
@@ -370,7 +372,7 @@ class Datastore:
             time=datetime.fromtimestamp(result[1]),
         )
 
-    def get_latest_listen_play_info(self, user_id: str) -> Optional[PlayInfo]:
+    def get_latest_listen_play_info(self, user_id: str) -> PlayInfo | None:
         cursor = self.connection.cursor()
         cursor.execute(
             "select episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, previous_listen.seconds, previous_listen.time, podcast_feed.cover_art_url from previous_listen join episode on previous_listen.episode_id = episode.episode_id join podcast_feed on podcast_feed.id = episode.feed_id where previous_listen.user_id = ? order by previous_listen.time desc limit 1;",
