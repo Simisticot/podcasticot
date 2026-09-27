@@ -427,80 +427,6 @@ def test_search_for_episode(
     assert feed[0].episode.assets.description == "podcast about bananas and apples"
 
 
-def test_get_single_feed(
-    service_factory: Callable[..., PodcastService], alice: User
-) -> None:
-    service = service_factory(
-        rss_feed_podcasts={
-            "this matters": PodcastImport(
-                title="cool podcast title",
-                episode_assets=[EpisodeAssetFactory.build(title="skibidi")],
-                cover_art_url="fake cover url",
-            ),
-            "this also matters": PodcastImport(
-                title="cool podcast title",
-                episode_assets=[EpisodeAssetFactory.build(title="skibido")],
-                cover_art_url="other fake cover url",
-            ),
-        }
-    )
-
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this also matters")
-
-    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
-
-    assert len(home_feed) == 2
-
-    first_play_info = home_feed[0]
-
-    single_feed = service.get_single_feed(
-        user_id=alice.id, page=0, feed_id=first_play_info.episode.feed_id
-    )
-
-    assert len(single_feed) == 1
-    assert single_feed[0] == first_play_info
-
-
-def test_get_single_feed_chronological(
-    service_factory: Callable[..., PodcastService], alice: User
-) -> None:
-    service = service_factory(
-        rss_feed_podcasts={
-            "this matters": PodcastImport(
-                title="cool podcast title",
-                episode_assets=[
-                    EpisodeAssetFactory.build(
-                        published_date=datetime(day=1, month=1, year=2025),
-                    ),
-                    EpisodeAssetFactory.build(
-                        published_date=datetime(day=2, month=1, year=2025),
-                    ),
-                    EpisodeAssetFactory.build(
-                        published_date=datetime(day=3, month=1, year=2025),
-                    ),
-                ],
-                cover_art_url="Fake cover url",
-            )
-        }
-    )
-
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
-    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
-    first_play_info = home_feed[0]
-    single_feed_non_chronological = service.get_single_feed(
-        user_id=alice.id, page=0, feed_id=first_play_info.episode.feed_id
-    )
-    assert single_feed_non_chronological[0].episode.assets.published_date.day == 3
-    single_feed_chronological = service.get_single_feed(
-        user_id=alice.id,
-        page=0,
-        feed_id=first_play_info.episode.feed_id,
-        chronological=True,
-    )
-    assert single_feed_chronological[0].episode.assets.published_date.day == 1
-
-
 def test_home_feed_with_listen_info(
     service_factory: Callable[..., PodcastService], alice: User
 ) -> None:
@@ -524,33 +450,6 @@ def test_home_feed_with_listen_info(
     assert len(refreshed_home_feed) == 1
     assert refreshed_home_feed[0].previous_listen is not None
     assert refreshed_home_feed[0].previous_listen.time_listened == timedelta(seconds=10)
-
-
-def test_single_feed_with_listen_info(
-    service_factory: Callable[..., PodcastService], alice: User
-) -> None:
-    service = service_factory(
-        rss_feed_podcasts={
-            "this matters": PodcastImport(
-                title="cool podcast title",
-                episode_assets=[EpisodeAssetFactory.build()],
-                cover_art_url="Fake cover url",
-            )
-        }
-    )
-
-    service.subscribe_user_to_podcast(user_id=alice.id, feed_url="this matters")
-    home_feed = service.get_user_home_feed(user_id=alice.id, page=0)
-    service.update_current_play_time(
-        episode_id=home_feed[0].episode.id, user_id=alice.id, seconds=10
-    )
-    single_feed = service.get_single_feed(
-        user_id=alice.id, page=0, feed_id=home_feed[0].episode.feed_id
-    )
-
-    assert len(single_feed) == 1
-    assert single_feed[0].previous_listen is not None
-    assert single_feed[0].previous_listen.time_listened == timedelta(seconds=10)
 
 
 def test_home_feed_filters_out_fully_listened_episodes(

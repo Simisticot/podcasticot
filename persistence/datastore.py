@@ -199,55 +199,6 @@ class Datastore:
         self.connection.commit()
         return feed_id
 
-    def get_single_feed(
-        self,
-        user_id: str,
-        feed_id: str,
-        number_of_episodes: int,
-        page: int,
-        chronological: bool,
-    ) -> list[PlayInfo]:
-        order = "asc" if chronological else "desc"
-        cursor = self.connection.cursor()
-        cursor.execute(
-            f"SELECT episode.episode_id, episode.feed_id, episode.title, episode.description, episode.download_link, episode.published_date, episode.length, podcast_feed.cover_art_url, previous_listen.seconds, previous_listen.time FROM episode JOIN subscription ON episode.feed_id = subscription.feed_id join podcast_feed on podcast_feed.id = subscription.feed_id LEFT JOIN previous_listen on episode.episode_id = previous_listen.episode_id AND previous_listen.user_id = ? WHERE subscription.user_id = ? AND episode.feed_id = ? ORDER BY episode.published_date {order} LIMIT ? OFFSET ?;",
-            (
-                user_id,
-                user_id,
-                feed_id,
-                number_of_episodes,
-                number_of_episodes * (page - 1),
-            ),
-        )
-        result = cursor.fetchall()
-        episodes: list[PlayInfo] = []
-        for row in result:
-            if row[7] is None or row[8] is None:
-                previous_listen = None
-            else:
-                previous_listen = PreviousListen(
-                    time_listened=row[8],
-                    time=datetime.fromtimestamp(row[9]),
-                )
-            episodes.append(
-                PlayInfo(
-                    previous_listen=previous_listen,
-                    episode=Episode(
-                        id=row[0],
-                        feed_id=row[1],
-                        assets=EpisodeAssets(
-                            title=row[2],
-                            description=row[3],
-                            download_link=row[4],
-                            published_date=datetime.fromtimestamp(row[5]),
-                            length=row[6],
-                        ),
-                        cover_art_url=row[7],
-                    ),
-                )
-            )
-        return episodes
-
     def get_user_home_feed(
         self,
         user_id: str,

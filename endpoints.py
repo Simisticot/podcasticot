@@ -262,20 +262,6 @@ def my_feed(
     return PodcastFeed(feed_entries=entries, next_page=page + 1)
 
 
-@app.get("/feed/{feed_id}")
-def single_feed(
-    feed_id: str,
-    page: int = 1,
-    user: User = Depends(authenticated_user),
-    chronological: bool = False,
-    service: PodcastService = Depends(podcast_service),
-) -> PodcastFeed:
-    entries = service.get_single_feed(
-        user_id=user.id, page=page, chronological=chronological, feed_id=feed_id
-    )
-    return PodcastFeed(feed_entries=entries, next_page=page + 1)
-
-
 @app.post("/listened/{episode_id}")
 def listened(
     episode_id: str,
